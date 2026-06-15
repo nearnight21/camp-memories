@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&family=Reenie+Beanie&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Outfit', sans-serif;
+  --font-hand: 'Caveat', cursive;
+  --font-marker: 'Reenie Beanie', cursive;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Custom organic overlays & wood texture classes */
+.corkboard-grid {
+  background-color: #3e2716;
+  background-image: 
+    radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.45) 100%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 2px, transparent 2px, transparent 100px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.01) 0px, rgba(255, 255, 255, 0.01) 2px, transparent 2px, transparent 100px);
+}
+
+.cork-texture {
+  background-color: #8c6239;
+  background-image: 
+    radial-gradient(rgba(0,0,0,0.15) 15%, transparent 20%),
+    radial-gradient(rgba(0,0,0,0.1) 15%, transparent 20%),
+    linear-gradient(45deg, rgba(0,0,0,0.05) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.05) 75%, rgba(0,0,0,0.05)),
+    linear-gradient(45deg, rgba(0,0,0,0.05) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.05) 75%, rgba(0,0,0,0.05));
+  background-size: 8px 8px, 6px 6px, 12px 12px, 12px 12px;
+  background-position: 0 0, 3px 3px, 0 0, 6px 6px;
+}
+
+.paper-grain {
+  background-image: radial-gradient(rgba(0,0,0,0.02) 1px, transparent 0);
+  background-size: 4px 4px;
+}
+
+.burnt-edge {
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.6), 0 4px 10px rgba(0,0,0,0.4);
+}
+
+/* Custom scrollbar for horizontal galleries */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Candle/Lantern breathing animation */
+@keyframes flicker {
+  0% { opacity: 0.96; transform: scale(1); filter: brightness(1); }
+  20% { opacity: 0.88; transform: scale(0.98); filter: brightness(0.92); }
+  45% { opacity: 0.94; transform: scale(1.02); filter: brightness(1.04); }
+  70% { opacity: 0.90; transform: scale(0.99); filter: brightness(0.95); }
+  85% { opacity: 0.97; transform: scale(1.01); filter: brightness(1.02); }
+  100% { opacity: 0.96; transform: scale(1); filter: brightness(1); }
+}
+
+.lantern-glow {
+  animation: flicker 4s infinite alternate ease-in-out;
+}
+
+/* Sound indicator waves */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+.sound-wave-bar {
+  animation: wave 1.2s infinite ease-in-out;
+}
+.sound-wave-bar:nth-child(2) { animation-delay: 0.2s; }
+.sound-wave-bar:nth-child(3) { animation-delay: 0.4s; }
+.sound-wave-bar:nth-child(4) { animation-delay: 0.1s; }

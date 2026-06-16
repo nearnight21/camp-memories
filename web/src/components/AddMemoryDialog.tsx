@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { X, Plus, Image as ImageIcon, Sparkles, Check, Upload, Loader2 } from 'lucide-react';
 import { uploadImage } from '../supabase';
 import { Memory, CategoryType, PinnedBy } from '../types';
@@ -21,6 +21,7 @@ export default function AddMemoryDialog({
   const [imageUrl, setImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [pinnedBy, setPinnedBy] = useState<PinnedBy>('pin');
+  const [locationName, setLocationName] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Pre-configured elegant themed Unsplash stock pools
@@ -102,6 +103,7 @@ export default function AddMemoryDialog({
       pastSelf,
       presentSelf,
       pinnedBy,
+      location: locationName.trim() ? { name: locationName.trim(), mx: 0, my: 0 } : undefined,
     });
 
     setIsSuccess(true);
@@ -218,6 +220,21 @@ export default function AddMemoryDialog({
                 </select>
               </div>
             </div>
+
+            {/* Location */}
+            <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold font-mono tracking-wider text-stone-500 uppercase">
+                  地点
+                </label>
+                <input
+                  id="add-input-location"
+                  type="text"
+                  placeholder="例如：京都岚山 / 大理古城"
+                  value={locationName}
+                  onChange={(e) => setLocationName(e.target.value)}
+                  className="bg-[#fdfcf7] border border-amber-900/25 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-hidden"
+                />
+              </div>
 
             {/* Row 3: Photo URL & Fastener */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

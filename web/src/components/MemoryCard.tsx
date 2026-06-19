@@ -8,6 +8,7 @@ interface MemoryCardProps {
   isHovered: boolean;
   onHover: (id: string | null) => void;
   onClick: () => void;
+  onDelete: (id: string) => void;
 }
 
 export default function MemoryCard({
@@ -15,7 +16,21 @@ export default function MemoryCard({
   isHovered,
   onHover,
   onClick,
+  onDelete,
 }: MemoryCardProps) {
+
+  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirmingDelete) {
+      onDelete(memory.id);
+    } else {
+      setConfirmingDelete(true);
+      setTimeout(() => setConfirmingDelete(false), 2600);
+    }
+  };
+
   const { title, date, tag, image, pinnedBy, px, py, rotation } = memory;
 
   // Render the selected fastening hardware
@@ -94,6 +109,18 @@ export default function MemoryCard({
     >
       {/* Light bulb reflection overlay across the photo */}
       <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-white/10 pointer-events-none z-10"></div>
+
+      {/* Delete button — shows on hover, two-step confirm to avoid accidents */}
+      {isHovered && (
+        <button
+          onClick={handleDeleteClick}
+          onMouseEnter={() => onHover(memory.id)}
+          className={`absolute top-1 right-1 z-50 flex items-center justify-center rounded-full backdrop-blur-sm transition-all duration-200 select-none ${confirmingDelete ? "bg-red-600/90 text-white text-[8px] font-bold px-2 h-5" : "bg-black/40 text-white/80 hover:bg-red-600/90 hover:text-white h-5 w-5 text-xs"}`}
+          title={confirmingDelete ? "再点一次确认删除" : "删除"}
+        >
+          {confirmingDelete ? "确认?" : "×"}
+        </button>
+      )}
 
       {/* Render pin/fastener hardware */}
       {renderFastener(pinnedBy)}

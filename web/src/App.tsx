@@ -483,6 +483,16 @@ export default function App() {
     }
   };
 
+  const handleDeleteMemory = async (id: string) => {
+    const updated = memories.filter(m => m.id !== id);
+    setMemories(updated);
+    saveMemoriesToStorage(updated);
+    if (selectedMemory && selectedMemory.id === id) {
+      setSelectedMemory(null);
+    }
+    await supabase.from("memories").delete().eq("id", id);
+  };
+
   // --- Filter active memories on the board matching selected timeline year ---
   const currentTimelineMemories = memories.filter(m => m.year === activeYear);
 
@@ -1052,6 +1062,7 @@ export default function App() {
                         isHovered={hoveredMemoryId === memory.id}
                         onHover={setHoveredMemoryId}
                         onClick={() => setSelectedMemory(memory)}
+                        onDelete={handleDeleteMemory}
                       />
                     ))}
                   </AnimatePresence>

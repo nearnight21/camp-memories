@@ -1089,7 +1089,7 @@ export default function App() {
 
       <main 
         id="timeline-controls-panel"
-        className={`w-[90%] md:w-[85%] max-w-[1300px] z-30 flex flex-col md:flex-row items-center justify-between gap-5 bg-transparent border border-amber-950/40 rounded-xl p-4 shadow-2xl select-none pointer-events-auto absolute left-1/2 -translate-x-1/2 ${
+        className={`w-[90%] md:w-[85%] max-w-[1300px] z-30 flex flex-col md:flex-row items-center justify-between gap-5 select-none pointer-events-auto absolute left-1/2 -translate-x-1/2 ${
           isMobile ? "bottom-4" : "bottom-14"
         }`}
       >

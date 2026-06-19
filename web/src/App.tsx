@@ -1095,9 +1095,6 @@ export default function App() {
         {/* Right: Custom timber continuous Timeline Slider with click snap-notch */}
         <div className="flex-grow max-w-lg w-full flex flex-col gap-1.5">
           <div className="flex justify-between items-center px-1">
-            <span className="text-[10px] font-bold font-mono tracking-wider text-[#a88a6d]/80 uppercase mr-1">
-              时光经纬线 (无极拖拽或点击年份跨越)
-            </span>
             <span className="text-[10px] font-mono font-bold text-amber-500 bg-stone-950/70 py-0.5 px-2 rounded-full shadow-inner border border-stone-900/40">
               {maxScrollX > 0 ? Math.round((scrollX / maxScrollX) * 100) : 100}% 跨度深研
             </span>
@@ -1106,7 +1103,7 @@ export default function App() {
           <div 
             ref={sliderTrackRef}
             onPointerDown={handleSliderPointerDown}
-            className="relative h-7 bg-stone-950/90 rounded-full border border-stone-900/50 shadow-inner [box-shadow:inset_0_2px_4px_rgba(0,0,0,0.8)] cursor-pointer flex items-center px-4"
+            className="relative h-7 bg-stone-950/10 rounded-full border border-stone-900/30 backdrop-blur-md [box-shadow:inset_0_2px_4px_rgba(0,0,0,0.8)] cursor-pointer flex items-center px-4"
           >
             {/* Runway track line */}
             <div className="absolute inset-x-4 h-1.5 bg-[#4c3523] rounded-full overflow-hidden">

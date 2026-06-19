@@ -312,12 +312,12 @@ export default function MemoryDetailPanel({
             )}
 
             {/* Filmstrip */}
-            <div className="flex gap-2.5 overflow-x-auto py-1.5 px-0.5 scroll-smooth snap-x snap-mandatory" style={{ scrollbarWidth: "thin" }}>
+            <div className="flex gap-2 overflow-x-auto py-2 px-0.5 scroll-smooth snap-x snap-mandatory" style={{ scrollbarWidth: "thin", scrollbarColor: "#a88a6d transparent" }}>
               {memory.gallery.map((imgUrl, i) => (
                 <div
                   key={i}
                   onClick={() => setPhotoIdx(i + 1)}
-                  className="w-24 h-18 bg-stone-800 border border-stone-200/60 rounded flex-shrink-0 overflow-hidden shadow-md transform hover:scale-105 active:scale-95 transition-all relative group cursor-pointer"
+                  className="h-18 bg-stone-800 border border-stone-200/60 rounded shrink-0 overflow-hidden shadow-md transform hover:scale-105 active:scale-95 transition-all relative group cursor-pointer snap-start" style={{ flex: "0 0 calc(25% - 6px)" }}
                 >
                   {/* SHOT overlay with delete button */}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[8px] text-white font-mono uppercase">

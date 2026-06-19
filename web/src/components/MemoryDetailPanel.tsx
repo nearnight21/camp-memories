@@ -312,7 +312,7 @@ export default function MemoryDetailPanel({
             )}
 
             {/* Filmstrip */}
-            <div className="flex gap-2.5 overflow-x-auto py-1.5 px-0.5 hide-scrollbar scroll-smooth">
+            <div className="flex gap-2.5 overflow-x-auto py-1.5 px-0.5 scroll-smooth snap-x snap-mandatory" style={{ scrollbarWidth: "thin" }}>
               {memory.gallery.map((imgUrl, i) => (
                 <div
                   key={i}

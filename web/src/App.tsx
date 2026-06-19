@@ -1077,23 +1077,22 @@ export default function App() {
       {/* ======================================================== */}
       {/* 3. TIMELINE NAVIGATION DECK FLOATING ON TOP */}
       {/* ======================================================== */}
+      {/* Floating Add-Memory button — right edge, vertically centered */}
+      <button
+        id="btn-trigger-add-memory"
+        onClick={() => setShowAddMemory(true)}
+        title="钉入新的回忆"
+        className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-amber-900 hover:bg-amber-950 text-[#fffdfa] border border-amber-800/40 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer w-11 h-11 pointer-events-auto"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
       <main 
         id="timeline-controls-panel"
         className={`w-[90%] md:w-[85%] max-w-[1300px] z-30 flex flex-col md:flex-row items-center justify-between gap-5 bg-transparent border border-amber-950/40 rounded-xl p-4 shadow-2xl select-none pointer-events-auto absolute left-1/2 -translate-x-1/2 ${
           isMobile ? "bottom-4" : "bottom-14"
         }`}
       >
-        {/* Left: Button to Pin a New Memory */}
-        <div className="flex items-center gap-3">
-          <button
-            id="btn-trigger-add-memory"
-            onClick={() => setShowAddMemory(true)}
-            title="钉入新的回忆"
-            className="bg-amber-900 hover:bg-amber-950 text-[#fffdfa] border border-amber-800/40 rounded-full flex items-center justify-center transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer w-9 h-9"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
-        </div>
 
         {/* Right: Custom timber continuous Timeline Slider with click snap-notch */}
         <div className="flex-grow max-w-lg w-full flex flex-col gap-1.5">

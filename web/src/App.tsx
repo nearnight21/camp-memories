@@ -1082,16 +1082,14 @@ export default function App() {
         id="btn-trigger-add-memory"
         onClick={() => setShowAddMemory(true)}
         title="钉入新的回忆"
-        className="fixed right-4 top-1/2 -translate-y-1/2 z-40 bg-amber-900 hover:bg-amber-950 text-[#fffdfa] border border-amber-800/40 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer w-11 h-11 pointer-events-auto"
+        className="fixed right-4 bottom-6 z-40 bg-amber-900 hover:bg-amber-950 text-[#fffdfa] border border-amber-800/40 rounded-full flex items-center justify-center transition-all shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer w-11 h-11 pointer-events-auto"
       >
         <Plus className="h-6 w-6" />
       </button>
 
       <main 
         id="timeline-controls-panel"
-        className={`w-[90%] md:w-[85%] max-w-[1300px] z-30 flex flex-col md:flex-row items-center justify-between gap-5 select-none pointer-events-auto absolute left-1/2 -translate-x-1/2 ${
-          isMobile ? "bottom-4" : "bottom-14"
-        }`}
+        className={`w-[90%] max-w-[420px] z-30 flex flex-col md:flex-row items-center justify-between gap-5 select-none pointer-events-auto absolute right-4 top-1/2 -translate-y-1/2`}
       >
 
         {/* Right: Custom timber continuous Timeline Slider with click snap-notch */}

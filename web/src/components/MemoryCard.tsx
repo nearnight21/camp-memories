@@ -20,6 +20,7 @@ export default function MemoryCard({
 }: MemoryCardProps) {
 
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
+  const [imageLoaded, setImageLoaded] = React.useState(false);
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -128,14 +129,18 @@ export default function MemoryCard({
       {/* Main Polaroid Photo Area */}
       <div className="w-full h-34 bg-stone-900 border border-stone-200/50 relative overflow-hidden rounded-xs">
         {/* Placeholder background spinner */}
-        <div className="absolute inset-0 bg-stone-900 flex items-center justify-center text-[9px] text-stone-550 font-mono">
-          LOADING...
-        </div>
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-stone-900 flex items-center justify-center text-[9px] text-stone-550 font-mono">
+            LOADING...
+          </div>
+        )}
         
         <img
           src={image}
           alt={title}
           referrerPolicy="no-referrer"
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageLoaded(true)}
           className="absolute inset-0 w-full h-full object-cover grayscale-[10%] group-hover:grayscale-0 transition-all duration-300"
         />
         

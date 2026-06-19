@@ -33,6 +33,7 @@ export default function MemoryCard({
   };
 
   const { title, date, tag, image, pinnedBy, px, py, rotation } = memory;
+  const [imgSrc, setImgSrc] = React.useState(image);
 
   // Render the selected fastening hardware
   const renderFastener = (type: PinnedBy) => {
@@ -135,12 +136,12 @@ export default function MemoryCard({
           </div>
         )}
         
-        <img
-          src={image}
+        <img key={imgSrc}
+          src={imgSrc}
           alt={title}
           referrerPolicy="no-referrer"
           onLoad={() => setImageLoaded(true)}
-          onError={() => setImageLoaded(true)}
+          onError={() => { if (memory.gallery && memory.gallery.length > 0 && imgSrc === image) { setImgSrc(memory.gallery[0]); } else { setImageLoaded(true); } }}
           className="absolute inset-0 w-full h-full object-cover grayscale-[10%] group-hover:grayscale-0 transition-all duration-300"
         />
         

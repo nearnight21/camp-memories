@@ -1093,9 +1093,6 @@ export default function App() {
             <Plus className="h-4 w-4" />
             <span className="font-display font-medium">✦ 钉入新的回忆 (Pin Memory)</span>
           </button>
-          <p className="text-[10px] text-stone-400 font-sans hidden lg:block max-w-[240px]">
-            点击将回忆写成纸笺，配上照片与心情感悟，挂载在相应的软木坐标上。
-          </p>
         </div>
 
         {/* Right: Custom timber continuous Timeline Slider with click snap-notch */}

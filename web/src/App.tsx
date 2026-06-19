@@ -160,7 +160,7 @@ export default function App() {
         .order("date", { ascending: false });
 
       if (!memErr && memData && memData.length > 0) {
-        setMemories(memData.map(mapMemory));
+        setMemories(memData.map(m => ({ ...m, py: Math.max(0, Math.min(58, m.py)) })).map(mapMemory));
       } else {
         // Seed initial data
         setMemories(INITIAL_MEMORIES);
@@ -411,20 +411,20 @@ export default function App() {
     switch (newMem.category) {
       case 'travel':
         px = rnd(4, 18);
-        py = rnd(12, 34);
+        py = rnd(8, 22);
         break;
       case 'growth':
         px = rnd(76, 88);
-        py = rnd(12, 34);
+        py = rnd(8, 22);
         break;
       case 'motorcycle':
         px = rnd(4, 18);
-        py = rnd(66, 84);
+        py = rnd(40, 54);
         break;
       case 'photography':
       default:
         px = rnd(76, 88);
-        py = rnd(66, 84);
+        py = rnd(40, 54);
         break;
     }
 

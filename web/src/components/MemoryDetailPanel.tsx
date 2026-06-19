@@ -25,6 +25,10 @@ export default function MemoryDetailPanel({
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [locName, setLocName] = useState<string>(memory.location?.name ?? "");
+  const [locMx, setLocMx] = useState<number | "">(memory.location?.mx ?? "");
+  const [locMy, setLocMy] = useState<number | "">(memory.location?.my ?? "");
 
 
   const handleSavePresentText = () => {
@@ -65,6 +69,29 @@ export default function MemoryDetailPanel({
     } finally {
       setUploading(false);
     }
+  };
+
+  const openLocationEditor = () => {
+    setLocName(memory.location?.name ?? "");
+    setLocMx(memory.location?.mx ?? 50);
+    setLocMy(memory.location?.my ?? 50);
+    setIsEditingLocation(true);
+  };
+
+  const handleSaveLocation = () => {
+    const trimmed = locName.trim();
+    if (!trimmed) {
+      onUpdateMemory({ ...memory, location: undefined });
+      setIsEditingLocation(false);
+      return;
+    }
+    const mx = typeof locMx === "number" ? Math.max(0, Math.min(100, locMx)) : 50;
+    const my = typeof locMy === "number" ? Math.max(0, Math.min(100, locMy)) : 50;
+    onUpdateMemory({
+      ...memory,
+      location: { name: trimmed, mx, my },
+    });
+    setIsEditingLocation(false);
   };
 
   const currentImage =
@@ -110,15 +137,87 @@ export default function MemoryDetailPanel({
           <div>
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-stone-100 bg-amber-900/85 uppercase tracking-wide">
+              <div className="flex flex-col items-start gap-1.5 min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-stone-100 bg-amber-900/85 uppercase tracking-wide">
                   {memory.tag}
                 </span>
-                {memory.location && (
-                  <span className="text-[10px] text-stone-500 font-mono flex items-center gap-1 max-w-[200px]">
-                    <MapPin className="h-3.5 w-3.5 text-red-500" />
+                {!isEditingLocation && memory.location && (
+                  <span className="group/loc text-[10px] text-stone-500 font-mono flex items-center gap-1 max-w-[240px]">
+                    <MapPin className="h-3.5 w-3.5 text-red-500 shrink-0" />
                     <span className="truncate">{memory.location.name}</span>
+                    <button
+                      onClick={openLocationEditor}
+                      className="opacity-0 group-hover/loc:opacity-100 text-amber-700 hover:text-amber-900 transition-opacity shrink-0"
+                      title="编辑地点"
+                    >
+                      <Edit3 className="h-3 w-3" />
+                    </button>
                   </span>
+                )}
+                {!isEditingLocation && !memory.location && (
+                  <button
+                    onClick={openLocationEditor}
+                    className="text-[10px] text-stone-400 hover:text-amber-700 font-mono inline-flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>添加地点</span>
+                  </button>
+                )}
+                </div>
+                {isEditingLocation && (
+                  <div className="mt-2 w-full flex flex-col gap-1.5 bg-amber-50/40 p-2.5 rounded-lg border border-amber-200/60 max-w-[320px]">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                      <input
+                        id="edit-location-name"
+                        type="text"
+                        value={locName}
+                        onChange={(e) => setLocName(e.target.value)}
+                        placeholder="地点名称（如：外公外婆家）"
+                        className="flex-1 text-xs bg-white/70 border border-amber-200/60 rounded px-2 py-1 font-mono focus:outline-none focus:border-amber-400 min-w-0"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-stone-500">
+                      <span className="w-7 shrink-0">mx</span>
+                      <input
+                        id="edit-location-mx"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={locMx}
+                        onChange={(e) => setLocMx(e.target.value === "" ? "" : Number(e.target.value))}
+                        className="w-16 bg-white/70 border border-amber-200/60 rounded px-1.5 py-0.5 focus:outline-none focus:border-amber-400"
+                      />
+                      <span className="w-7 shrink-0">my</span>
+                      <input
+                        id="edit-location-my"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={locMy}
+                        onChange={(e) => setLocMy(e.target.value === "" ? "" : Number(e.target.value))}
+                        className="w-16 bg-white/70 border border-amber-200/60 rounded px-1.5 py-0.5 focus:outline-none focus:border-amber-400"
+                      />
+                      <span className="text-stone-400 text-[9px] ml-1">0-100</span>
+                    </div>
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        onClick={() => setIsEditingLocation(false)}
+                        className="text-[10px] px-2 py-0.5 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded font-semibold"
+                      >
+                        取消
+                      </button>
+                      <button
+                        id="btn-save-location"
+                        onClick={handleSaveLocation}
+                        className="text-[10px] px-2 py-0.5 bg-amber-900 hover:bg-amber-950 text-stone-100 rounded font-semibold inline-flex items-center gap-1"
+                      >
+                        <Check className="h-3 w-3" />
+                        <span>{locName.trim() ? "更新地点" : "清除地点"}</span>
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
               <button

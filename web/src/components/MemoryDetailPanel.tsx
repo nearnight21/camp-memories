@@ -115,9 +115,9 @@ export default function MemoryDetailPanel({
                   {memory.tag}
                 </span>
                 {memory.location && (
-                  <span className="text-[10px] text-stone-500 font-mono flex items-center gap-1">
+                  <span className="text-[10px] text-stone-500 font-mono flex items-center gap-1 max-w-[200px]">
                     <MapPin className="h-3.5 w-3.5 text-red-500" />
-                    <span>{memory.location.name}</span>
+                    <span className="truncate">{memory.location.name}</span>
                   </span>
                 )}
               </div>

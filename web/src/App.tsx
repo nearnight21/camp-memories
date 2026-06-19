@@ -1089,7 +1089,7 @@ export default function App() {
 
       <main 
         id="timeline-controls-panel"
-        className={`w-[90%] max-w-[420px] z-30 flex flex-col md:flex-row items-center justify-between gap-5 select-none pointer-events-auto absolute right-4 bottom-14`}
+        className={`w-[90%] max-w-[420px] z-30 flex flex-col md:flex-row items-center justify-between gap-5 select-none pointer-events-auto absolute left-1/2 -translate-x-1/2 bottom-14`}
       >
 
         {/* Right: Custom timber continuous Timeline Slider with click snap-notch */}

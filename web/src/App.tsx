@@ -1088,10 +1088,10 @@ export default function App() {
           <button
             id="btn-trigger-add-memory"
             onClick={() => setShowAddMemory(true)}
-            className="bg-amber-900 hover:bg-amber-950 text-[#fffdfa] border border-amber-800/40 text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
+            title="钉入新的回忆"
+            className="bg-amber-900 hover:bg-amber-950 text-[#fffdfa] border border-amber-800/40 rounded-full flex items-center justify-center transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer w-9 h-9"
           >
-            <Plus className="h-4 w-4" />
-            <span className="font-display font-medium">✦ 钉入新的回忆 (Pin Memory)</span>
+            <Plus className="h-5 w-5" />
           </button>
         </div>
 

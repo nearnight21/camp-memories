@@ -419,12 +419,12 @@ export default function App() {
         break;
       case 'motorcycle':
         px = rnd(4, 18);
-        py = rnd(56, 68);
+        py = rnd(66, 84);
         break;
       case 'photography':
       default:
         px = rnd(76, 88);
-        py = rnd(56, 68);
+        py = rnd(66, 84);
         break;
     }
 
@@ -778,7 +778,7 @@ export default function App() {
         {/* Inner sliding canvas container containing multiple panels */}
         <div
           id="scrapbook-corkboard-inner"
-          className="absolute inset-0 flex h-full pb-24 touch-none select-none pointer-events-auto"
+          className="absolute inset-0 flex h-full touch-none select-none pointer-events-auto"
           style={{
             width: `${yearsList.length * 100}%`,
             transform: `translateX(-${(scrollX / yearsList.length) * 100}%)`,

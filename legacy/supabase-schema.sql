@@ -126,3 +126,6 @@ CREATE INDEX IF NOT EXISTS idx_memories_country ON memories(country);
 -- 11. 精确坐标支持（LocationPicker 选点存储，地图精确定位）
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS lat REAL;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS lng REAL;
+
+-- 12. 详细位置备注（仅文字记录，不影响地图定位）
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS detail_location TEXT;

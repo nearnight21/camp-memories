@@ -36,6 +36,7 @@ export default function MemoryDetailPanel({
     lat: number;
     lng: number;
   } | null>(null);
+  const [detailLoc, setDetailLoc] = useState<string>(memory.detailLocation ?? "");
 
 
   const handleSavePresentText = () => {
@@ -83,6 +84,7 @@ export default function MemoryDetailPanel({
     setLocMx(memory.location?.mx ?? 50);
     setLocMy(memory.location?.my ?? 50);
     setLocGeo(null);
+    setDetailLoc(memory.detailLocation ?? "");
     setIsEditingLocation(true);
   };
 
@@ -98,6 +100,7 @@ export default function MemoryDetailPanel({
     onUpdateMemory({
       ...memory,
       location: { name: trimmed, mx, my },
+      detailLocation: detailLoc.trim() || undefined,
       // 通过搜索选定后写入精确坐标与国家/城市，地图直接采用不再猜测
       ...(locGeo
         ? {
@@ -162,7 +165,10 @@ export default function MemoryDetailPanel({
                 {!isEditingLocation && memory.location && (
                   <span className="group/loc text-[10px] text-stone-500 font-mono flex items-center gap-1 max-w-[240px]">
                     <MapPin className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                    <span className="truncate">{memory.location.name}</span>
+                    <span className="truncate">
+                      {memory.location.name}
+                      {memory.detailLocation ? `（${memory.detailLocation}）` : ''}
+                    </span>
                     <button
                       onClick={openLocationEditor}
                       className="opacity-0 group-hover/loc:opacity-100 text-amber-700 hover:text-amber-900 transition-opacity shrink-0"
@@ -199,6 +205,14 @@ export default function MemoryDetailPanel({
                         />
                       </div>
                     </div>
+                    <input
+                      id="edit-location-detail"
+                      type="text"
+                      value={detailLoc}
+                      onChange={(e) => setDetailLoc(e.target.value)}
+                      placeholder="详细位置（可选，不影响地图）：如 外公外婆家"
+                      className="w-full text-[10px] bg-white/70 border border-amber-200/60 rounded px-2 py-1 font-mono focus:outline-none focus:border-amber-400"
+                    />
                     <div className="flex items-center gap-1.5 text-[10px] font-mono text-stone-500">
                       <span className="w-7 shrink-0">mx</span>
                       <input

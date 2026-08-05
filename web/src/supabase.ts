@@ -56,6 +56,7 @@ export function mapMemory(db: any): Memory {
     city: db.city || undefined,
     lat: db.lat ?? undefined,
     lng: db.lng ?? undefined,
+    detailLocation: db.detail_location || undefined,
   };
 }
 
@@ -82,5 +83,6 @@ export function memoryToDb(m: Memory): Record<string, any> {
     city: m.city || null,
     lat: m.lat ?? null,
     lng: m.lng ?? null,
+    detail_location: m.detailLocation || null,
   };
 }

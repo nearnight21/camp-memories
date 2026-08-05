@@ -214,15 +214,42 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
             .addTo(layer);
         }
       } else {
-        // 层级 3（zoom ≥ 9）：视野内有坐标记忆的精确点位（无坐标的见右侧面板）
+        // 层级 3（zoom ≥ 9）：视野内有坐标记忆的精确点位；
+        // 同坐标多条记忆按屏幕像素半径展开成环，避免完全重叠堆叠
         const bounds = map.getBounds();
+        const byCoord = new Map<string, Memory[]>();
         for (const m of enriched) {
           if (cancelled) return;
           if (typeof m.lat !== 'number' || typeof m.lng !== 'number') continue;
           if (!bounds.contains([m.lat, m.lng])) continue;
-          L.marker([m.lat, m.lng], { icon: bubbleIcon(m.image, 1, m.title) })
-            .on('click', () => onSelectMemory(m))
-            .addTo(layer);
+          const key = `${m.lat.toFixed(6)},${m.lng.toFixed(6)}`;
+          const list = byCoord.get(key);
+          if (list) list.push(m);
+          else byCoord.set(key, [m]);
+        }
+        // 展开半径：固定屏幕像素（约 28px），换算成当前缩放下的度数，保证任意 zoom 都能错开
+        const pxPerDeg = (256 * Math.pow(2, map.getZoom())) / 360;
+        const spreadDeg = 28 / pxPerDeg;
+        for (const [key, list] of byCoord) {
+          const [lat, lng] = key.split(',').map(Number);
+          if (list.length === 1) {
+            L.marker([lat, lng], { icon: bubbleIcon(list[0].image, 1, list[0].title) })
+              .on('click', () => onSelectMemory(list[0]))
+              .addTo(layer);
+            continue;
+          }
+          const n = list.length;
+          const angleStep = (2 * Math.PI) / n;
+          const startAngle = Math.random() * 2 * Math.PI;
+          const lngScale = Math.cos((lat * Math.PI) / 180) || 0.5;
+          list.forEach((m, i) => {
+            const a = startAngle + i * angleStep;
+            const dLat = Math.cos(a) * spreadDeg;
+            const dLng = (Math.sin(a) * spreadDeg) / lngScale;
+            L.marker([lat + dLat, lng + dLng], { icon: bubbleIcon(m.image, 1, m.title) })
+              .on('click', () => onSelectMemory(m))
+              .addTo(layer);
+          });
         }
       }
     };

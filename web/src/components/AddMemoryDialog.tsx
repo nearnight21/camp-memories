@@ -27,6 +27,7 @@ export default function AddMemoryDialog({
   const [city, setCity] = useState('');
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
+  const [detailLocation, setDetailLocation] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Pre-configured elegant themed Unsplash stock pools
@@ -113,6 +114,7 @@ export default function AddMemoryDialog({
       city: city.trim() || undefined,
       lat: lat ?? undefined,
       lng: lng ?? undefined,
+      detailLocation: detailLocation.trim() || undefined,
     });
 
     setIsSuccess(true);
@@ -281,6 +283,24 @@ export default function AddMemoryDialog({
                   className="bg-[#fdfcf7] border border-amber-900/25 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-hidden"
                 />
               </div>
+            </div>
+
+            {/* 详细位置（仅文字备注，不影响地图定位） */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold font-mono tracking-wider text-stone-500 uppercase">
+                详细位置（可选）
+              </label>
+              <input
+                id="add-input-detail-location"
+                type="text"
+                placeholder="例如：外公外婆家 / 巷口老面馆"
+                value={detailLocation}
+                onChange={(e) => setDetailLocation(e.target.value)}
+                className="bg-[#fdfcf7] border border-amber-900/25 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-hidden"
+              />
+              <p className="text-[9px] text-stone-400 font-mono mt-0.5">
+                仅作为文字记录（如具体门牌/人名），不影响地图定位
+              </p>
             </div>
 
             {/* Row 3: Photo URL & Fastener */}

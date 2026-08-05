@@ -66,87 +66,7 @@ export default function App() {
       setSession(s);
     });
 
-    // --- Auth handlers ---
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    setAuthSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
-    }
-    setAuthSubmitting(false);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setMemories([]);
-  };
-
-  // --- Auth loading screen ---
-  if (authLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18]">
-        <div className="text-5xl animate-bounce">🏕️</div>
-      </div>
-    );
-  }
-
-  // --- Login page ---
-  if (!session) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18] p-4">
-        <form onSubmit={handleLogin} className="w-full max-w-sm bg-[#23211D] border border-[#3a352e] rounded-2xl p-8 shadow-2xl">
-          <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🏕️</div>
-            <h1 className="text-2xl font-bold text-[#E8DEC8] font-display tracking-tight">Camp Memories</h1>
-            <p className="text-sm text-[#9C947C] mt-1 font-mono">Sign in to continue</p>
-          </div>
-          {authError && (
-            <div className="mb-4 p-2 bg-red-900/30 border border-red-800/40 rounded-lg text-red-300 text-xs text-center">
-              {authError}
-            </div>
-          )}
-          <div className="space-y-3 mb-5">
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={authSubmitting}
-            className="w-full py-2.5 rounded-lg bg-[#E8DEC8] text-[#1A1A18] font-semibold text-sm hover:bg-[#d4c9ae] transition-colors cursor-pointer disabled:opacity-50"
-          >
-            {authSubmitting ? "Signing in..." : "Enter Camp Memories"}
-          </button>
-          <p className="text-center text-[10px] text-[#6b5d4a] mt-4 font-mono">
-            Uses same Supabase account as ThinkPad
-          </p>
-        </form>
-      </div>
-    );
-  }
-
-  return () => subscription?.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   // --- Data fetch after auth ---
@@ -161,12 +81,13 @@ export default function App() {
 
       if (!memErr && memData && memData.length > 0) {
         setMemories(memData.map(m => ({ ...m, py: Math.max(0, Math.min(58, m.py)) })).map(mapMemory));
-      } else {
-        // Seed initial data
+      } else if (!localStorage.getItem("camp_seeded")) {
+        // Seed demo data once per browser; prevents re-seeding after the user deletes all memories
         setMemories(INITIAL_MEMORIES);
         for (const m of INITIAL_MEMORIES) {
           await supabase.from("memories").insert(memoryToDb(m));
         }
+        localStorage.setItem("camp_seeded", "1");
       }
     };
 
@@ -177,87 +98,7 @@ export default function App() {
     if (typeof window === 'undefined') return;
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
-    // --- Auth handlers ---
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    setAuthSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
-    }
-    setAuthSubmitting(false);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setMemories([]);
-  };
-
-  // --- Auth loading screen ---
-  if (authLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18]">
-        <div className="text-5xl animate-bounce">🏕️</div>
-      </div>
-    );
-  }
-
-  // --- Login page ---
-  if (!session) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18] p-4">
-        <form onSubmit={handleLogin} className="w-full max-w-sm bg-[#23211D] border border-[#3a352e] rounded-2xl p-8 shadow-2xl">
-          <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🏕️</div>
-            <h1 className="text-2xl font-bold text-[#E8DEC8] font-display tracking-tight">Camp Memories</h1>
-            <p className="text-sm text-[#9C947C] mt-1 font-mono">Sign in to continue</p>
-          </div>
-          {authError && (
-            <div className="mb-4 p-2 bg-red-900/30 border border-red-800/40 rounded-lg text-red-300 text-xs text-center">
-              {authError}
-            </div>
-          )}
-          <div className="space-y-3 mb-5">
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={authSubmitting}
-            className="w-full py-2.5 rounded-lg bg-[#E8DEC8] text-[#1A1A18] font-semibold text-sm hover:bg-[#d4c9ae] transition-colors cursor-pointer disabled:opacity-50"
-          >
-            {authSubmitting ? "Signing in..." : "Enter Camp Memories"}
-          </button>
-          <p className="text-center text-[10px] text-[#6b5d4a] mt-4 font-mono">
-            Uses same Supabase account as ThinkPad
-          </p>
-        </form>
-      </div>
-    );
-  }
-
-  return () => window.removeEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
   
   const sliderTrackRef = useRef<HTMLDivElement>(null);
@@ -789,86 +630,6 @@ export default function App() {
           {yearsList.map((yr) => {
             const panelMemories = memories.filter(m => m.year === yr);
             
-            // --- Auth handlers ---
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    setAuthSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
-    }
-    setAuthSubmitting(false);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setMemories([]);
-  };
-
-  // --- Auth loading screen ---
-  if (authLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18]">
-        <div className="text-5xl animate-bounce">🏕️</div>
-      </div>
-    );
-  }
-
-  // --- Login page ---
-  if (!session) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18] p-4">
-        <form onSubmit={handleLogin} className="w-full max-w-sm bg-[#23211D] border border-[#3a352e] rounded-2xl p-8 shadow-2xl">
-          <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🏕️</div>
-            <h1 className="text-2xl font-bold text-[#E8DEC8] font-display tracking-tight">Camp Memories</h1>
-            <p className="text-sm text-[#9C947C] mt-1 font-mono">Sign in to continue</p>
-          </div>
-          {authError && (
-            <div className="mb-4 p-2 bg-red-900/30 border border-red-800/40 rounded-lg text-red-300 text-xs text-center">
-              {authError}
-            </div>
-          )}
-          <div className="space-y-3 mb-5">
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={authSubmitting}
-            className="w-full py-2.5 rounded-lg bg-[#E8DEC8] text-[#1A1A18] font-semibold text-sm hover:bg-[#d4c9ae] transition-colors cursor-pointer disabled:opacity-50"
-          >
-            {authSubmitting ? "Signing in..." : "Enter Camp Memories"}
-          </button>
-          <p className="text-center text-[10px] text-[#6b5d4a] mt-4 font-mono">
-            Uses same Supabase account as ThinkPad
-          </p>
-        </form>
-      </div>
-    );
-  }
-
   return (
               <div 
                 key={yr}
@@ -957,86 +718,6 @@ export default function App() {
                       const midX = (sx + tx) / 2;
                       const midY = ((sy + ty) / 2) + 2.5;
 
-                      // --- Auth handlers ---
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    setAuthSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
-    }
-    setAuthSubmitting(false);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setMemories([]);
-  };
-
-  // --- Auth loading screen ---
-  if (authLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18]">
-        <div className="text-5xl animate-bounce">🏕️</div>
-      </div>
-    );
-  }
-
-  // --- Login page ---
-  if (!session) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18] p-4">
-        <form onSubmit={handleLogin} className="w-full max-w-sm bg-[#23211D] border border-[#3a352e] rounded-2xl p-8 shadow-2xl">
-          <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🏕️</div>
-            <h1 className="text-2xl font-bold text-[#E8DEC8] font-display tracking-tight">Camp Memories</h1>
-            <p className="text-sm text-[#9C947C] mt-1 font-mono">Sign in to continue</p>
-          </div>
-          {authError && (
-            <div className="mb-4 p-2 bg-red-900/30 border border-red-800/40 rounded-lg text-red-300 text-xs text-center">
-              {authError}
-            </div>
-          )}
-          <div className="space-y-3 mb-5">
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={authSubmitting}
-            className="w-full py-2.5 rounded-lg bg-[#E8DEC8] text-[#1A1A18] font-semibold text-sm hover:bg-[#d4c9ae] transition-colors cursor-pointer disabled:opacity-50"
-          >
-            {authSubmitting ? "Signing in..." : "Enter Camp Memories"}
-          </button>
-          <p className="text-center text-[10px] text-[#6b5d4a] mt-4 font-mono">
-            Uses same Supabase account as ThinkPad
-          </p>
-        </form>
-      </div>
-    );
-  }
-
   return (
                         <path
                           key={`thread-${m.id}`}
@@ -1116,86 +797,6 @@ export default function App() {
             {/* Dynamic Milestone notches based on yearsList */}
             {yearsList.map((yr, idx) => {
               const leftPercent = maxScrollX > 0 ? (idx / maxScrollX) * 100 : 50;
-              // --- Auth handlers ---
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    setAuthSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
-    }
-    setAuthSubmitting(false);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setMemories([]);
-  };
-
-  // --- Auth loading screen ---
-  if (authLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18]">
-        <div className="text-5xl animate-bounce">🏕️</div>
-      </div>
-    );
-  }
-
-  // --- Login page ---
-  if (!session) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#1A1A18] p-4">
-        <form onSubmit={handleLogin} className="w-full max-w-sm bg-[#23211D] border border-[#3a352e] rounded-2xl p-8 shadow-2xl">
-          <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🏕️</div>
-            <h1 className="text-2xl font-bold text-[#E8DEC8] font-display tracking-tight">Camp Memories</h1>
-            <p className="text-sm text-[#9C947C] mt-1 font-mono">Sign in to continue</p>
-          </div>
-          {authError && (
-            <div className="mb-4 p-2 bg-red-900/30 border border-red-800/40 rounded-lg text-red-300 text-xs text-center">
-              {authError}
-            </div>
-          )}
-          <div className="space-y-3 mb-5">
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-mono text-[#9C947C] mb-1 tracking-wider uppercase">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[#1A1A18] border border-[#3a352e] rounded-lg px-3 py-2.5 text-[#E8DEC8] text-sm focus:outline-none focus:border-[#6b5d4a] transition-colors"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={authSubmitting}
-            className="w-full py-2.5 rounded-lg bg-[#E8DEC8] text-[#1A1A18] font-semibold text-sm hover:bg-[#d4c9ae] transition-colors cursor-pointer disabled:opacity-50"
-          >
-            {authSubmitting ? "Signing in..." : "Enter Camp Memories"}
-          </button>
-          <p className="text-center text-[10px] text-[#6b5d4a] mt-4 font-mono">
-            Uses same Supabase account as ThinkPad
-          </p>
-        </form>
-      </div>
-    );
-  }
-
   return (
                 <div 
                   key={yr}

@@ -1,8 +1,0 @@
-{
-  "name": "Camp Memories",
-  "description": "An immersive, atmospheric 3D scrapbook set inside a quiet evening tent, lit by a warm camp lantern. Relive travel photographs, notes, and letters to the future pinned onto a rustic corkboard.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}

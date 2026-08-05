@@ -25,7 +25,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       name: 'Shibuya, Tokyo',
       mx: 68,
       my: 45
-    }
+    },
+    country: '日本',
+    city: '东京'
   },
   {
     id: 'scrambler-400-2024',
@@ -49,7 +51,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       name: 'Fuji Dirt Trails',
       mx: 54,
       my: 49
-    }
+    },
+    country: '日本',
+    city: '山梨'
   },
   {
     id: 'first-apartment-2024',
@@ -68,7 +72,9 @@ export const INITIAL_MEMORIES: Memory[] = [
     pinnedBy: 'magnet',
     px: 82,
     py: 18,
-    rotation: -4
+    rotation: -4,
+    country: '中国',
+    city: '杭州'
   },
 
   // ==================== 2025 MEMORIES ====================
@@ -94,7 +100,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       name: 'Arashiyama, Kyoto',
       mx: 45,
       my: 60
-    }
+    },
+    country: '日本',
+    city: '京都'
   },
   {
     id: 'film-yashica-2025',
@@ -113,7 +121,9 @@ export const INITIAL_MEMORIES: Memory[] = [
     pinnedBy: 'tape',
     px: 84,
     py: 68,
-    rotation: -8
+    rotation: -8,
+    country: '中国',
+    city: '上海'
   },
   {
     id: 'coastal-camp-2025',
@@ -137,7 +147,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       name: 'Minamiboso Cape',
       mx: 72,
       my: 58
-    }
+    },
+    country: '日本',
+    city: '千叶'
   },
 
   // ==================== 2026 MEMORIES ====================
@@ -163,7 +175,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       name: 'Japanese Alps',
       mx: 55,
       my: 40
-    }
+    },
+    country: '日本',
+    city: '长野'
   },
   {
     id: 'studio-workspace-2026',
@@ -182,6 +196,8 @@ export const INITIAL_MEMORIES: Memory[] = [
     pinnedBy: 'magnet',
     px: 82,
     py: 26,
-    rotation: 3
+    rotation: 3,
+    country: '中国',
+    city: '杭州'
   }
 ];

@@ -117,3 +117,8 @@ DROP TRIGGER IF EXISTS future_letters_set_user_id ON future_letters;
 CREATE TRIGGER future_letters_set_user_id
     BEFORE INSERT ON future_letters
     FOR EACH ROW EXECUTE FUNCTION set_user_id();
+
+-- 10. 地区线支持（国家/城市钻取）
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS country TEXT;
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS city TEXT;
+CREATE INDEX IF NOT EXISTS idx_memories_country ON memories(country);

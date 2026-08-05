@@ -52,6 +52,8 @@ export function mapMemory(db: any): Memory {
       mx: db.location_mx,
       my: db.location_my,
     } : undefined,
+    country: db.country || undefined,
+    city: db.city || undefined,
   };
 }
 
@@ -74,5 +76,7 @@ export function memoryToDb(m: Memory): Record<string, any> {
     location_name: m.location?.name || null,
     location_mx: m.location?.mx || null,
     location_my: m.location?.my || null,
+    country: m.country || null,
+    city: m.city || null,
   };
 }

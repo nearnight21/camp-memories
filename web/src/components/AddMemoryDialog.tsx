@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { X, Plus, Image as ImageIcon, Sparkles, Check, Upload, Loader2 } from 'lucide-react';
 import { uploadImage } from '../supabase';
 import { Memory, CategoryType, PinnedBy } from '../types';
@@ -22,6 +22,8 @@ export default function AddMemoryDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [pinnedBy, setPinnedBy] = useState<PinnedBy>('pin');
   const [locationName, setLocationName] = useState('');
+  const [country, setCountry] = useState('');
+  const [city, setCity] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Pre-configured elegant themed Unsplash stock pools
@@ -104,6 +106,8 @@ export default function AddMemoryDialog({
       presentSelf,
       pinnedBy,
       location: locationName.trim() ? { name: locationName.trim(), mx: 0, my: 0 } : undefined,
+      country: country.trim() || undefined,
+      city: city.trim() || undefined,
     });
 
     setIsSuccess(true);
@@ -235,6 +239,36 @@ export default function AddMemoryDialog({
                   className="bg-[#fdfcf7] border border-amber-900/25 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-hidden"
                 />
               </div>
+
+            {/* Row 2.5: Country & City（地区线钻取） */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold font-mono tracking-wider text-stone-500 uppercase">
+                  国家
+                </label>
+                <input
+                  id="add-input-country"
+                  type="text"
+                  placeholder="例如：日本 / 中国"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="bg-[#fdfcf7] border border-amber-900/25 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-hidden"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold font-mono tracking-wider text-stone-500 uppercase">
+                  城市
+                </label>
+                <input
+                  id="add-input-city"
+                  type="text"
+                  placeholder="例如：京都 / 杭州"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="bg-[#fdfcf7] border border-amber-900/25 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-hidden"
+                />
+              </div>
+            </div>
 
             {/* Row 3: Photo URL & Fastener */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

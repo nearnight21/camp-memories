@@ -23,5 +23,7 @@ export interface Memory {
     mx: number; // map coordinates on the central rustic map (x percent)
     my: number; // map coordinates on the central rustic map (y percent)
   };
+  country?: string; // 地区线钻取：国家
+  city?: string; // 地区线钻取：城市
 }
 

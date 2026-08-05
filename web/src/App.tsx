@@ -30,6 +30,8 @@ import AdventureMap from './components/AdventureMap';
 import MemoryCard from './components/MemoryCard';
 import MemoryDetailPanel from './components/MemoryDetailPanel';
 import AddMemoryDialog from './components/AddMemoryDialog';
+import TimelineView from './components/TimelineView';
+import PlacesView from './components/PlacesView';
 
 export default function App() {
   // --- Auth States ---
@@ -54,6 +56,7 @@ export default function App() {
   const [hoveredMemoryId, setHoveredMemoryId] = useState<string | null>(null);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [viewMode, setViewMode] = useState<'board' | 'timeline' | 'places'>('board');
 
   // --- Auth initialization ---
   useEffect(() => {
@@ -429,6 +432,27 @@ export default function App() {
           : 'bg-[#04060d] select-none text-blue-100 shadow-[inset_0_0_200px_rgba(0,0,10,0.95)]'
       }`}
     >
+      {/* View Switcher — 软木板 / 时间线 / 地区 */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 bg-stone-900/85 backdrop-blur-md rounded-full border border-stone-700/50 p-1 shadow-xl">
+        {([
+          { key: 'board', label: '🗺️ 软木板' },
+          { key: 'timeline', label: '📖 时间线' },
+          { key: 'places', label: '🌏 地区' },
+        ] as const).map((v) => (
+          <button
+            key={v.key}
+            onClick={() => setViewMode(v.key)}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-bold font-display transition-all cursor-pointer ${
+              viewMode === v.key
+                ? 'bg-amber-500 text-stone-950 shadow'
+                : 'text-stone-300 hover:text-amber-300'
+            }`}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
       {/* Background Twinkling Night Stars when lantern is toggled off */}
       {!isLanternOn && (
         <div id="starfield" className="absolute inset-0 pointer-events-none opacity-80 transition-opacity duration-1000">
@@ -844,6 +868,17 @@ export default function App() {
       <footer className="absolute bottom-3 left-0 right-0 z-30 text-center text-[10px] text-stone-500 font-mono tracking-widest pointer-events-none">
         <p>CAMP MEMORIES Ledger © 2026 · Places Pinned, People Grown</p>
       </footer>
+
+      {/* Alternate drill-down views — 时间线 / 地区（fixed 覆盖层，不改动软木板元素） */}
+      {viewMode !== 'board' && (
+        <div className="fixed inset-0 z-50">
+          {viewMode === 'timeline' ? (
+            <TimelineView memories={memories} onSelectMemory={setSelectedMemory} />
+          ) : (
+            <PlacesView memories={memories} onSelectMemory={setSelectedMemory} />
+          )}
+        </div>
+      )}
 
       {/* ======================================================== */}
       {/* 5. MODALS & FLOATING DIALOG OVERLAYS */}

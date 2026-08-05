@@ -31,7 +31,7 @@ import MemoryCard from './components/MemoryCard';
 import MemoryDetailPanel from './components/MemoryDetailPanel';
 import AddMemoryDialog from './components/AddMemoryDialog';
 import TimelineView from './components/TimelineView';
-import PlacesView from './components/PlacesView';
+import MapView from './components/MapView';
 
 export default function App() {
   // --- Auth States ---
@@ -875,7 +875,7 @@ export default function App() {
           {viewMode === 'timeline' ? (
             <TimelineView memories={memories} onSelectMemory={setSelectedMemory} />
           ) : (
-            <PlacesView memories={memories} onSelectMemory={setSelectedMemory} />
+            <MapView memories={memories} onSelectMemory={setSelectedMemory} />
           )}
         </div>
       )}

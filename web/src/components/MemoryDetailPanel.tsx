@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { X, Calendar, MapPin, Edit3, Check, Plus, Image as ImageIcon, Upload } from "lucide-react";
 import { Memory } from "../types";
 import { supabase, memoryToDb } from "../supabase";
+import LocationPicker from "./LocationPicker";
 
 interface MemoryDetailPanelProps {
   memory: Memory;
@@ -29,6 +30,12 @@ export default function MemoryDetailPanel({
   const [locName, setLocName] = useState<string>(memory.location?.name ?? "");
   const [locMx, setLocMx] = useState<number | "">(memory.location?.mx ?? "");
   const [locMy, setLocMy] = useState<number | "">(memory.location?.my ?? "");
+  const [locGeo, setLocGeo] = useState<{
+    country?: string;
+    city?: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
 
 
   const handleSavePresentText = () => {
@@ -75,6 +82,7 @@ export default function MemoryDetailPanel({
     setLocName(memory.location?.name ?? "");
     setLocMx(memory.location?.mx ?? 50);
     setLocMy(memory.location?.my ?? 50);
+    setLocGeo(null);
     setIsEditingLocation(true);
   };
 
@@ -90,6 +98,15 @@ export default function MemoryDetailPanel({
     onUpdateMemory({
       ...memory,
       location: { name: trimmed, mx, my },
+      // 通过搜索选定后写入精确坐标与国家/城市，地图直接采用不再猜测
+      ...(locGeo
+        ? {
+            country: locGeo.country ?? memory.country,
+            city: locGeo.city ?? memory.city,
+            lat: locGeo.lat,
+            lng: locGeo.lng,
+          }
+        : {}),
     });
     setIsEditingLocation(false);
   };
@@ -169,14 +186,18 @@ export default function MemoryDetailPanel({
                   <div className="mt-2 w-full flex flex-col gap-1.5 bg-amber-50/40 p-2.5 rounded-lg border border-amber-200/60 max-w-[320px]">
                     <div className="flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                      <input
-                        id="edit-location-name"
-                        type="text"
-                        value={locName}
-                        onChange={(e) => setLocName(e.target.value)}
-                        placeholder="地点名称（如：外公外婆家）"
-                        className="flex-1 text-xs bg-white/70 border border-amber-200/60 rounded px-2 py-1 font-mono focus:outline-none focus:border-amber-400 min-w-0"
-                      />
+                      <div className="flex-1 min-w-0">
+                        <LocationPicker
+                          value={locName}
+                          onChange={setLocName}
+                          onSelect={(c) => {
+                            setLocName(c.shortName);
+                            setLocGeo({ country: c.country, city: c.city, lat: c.lat, lng: c.lng });
+                          }}
+                          placeholder="搜索并选择地点（如：大理古城）"
+                          inputClassName="w-full text-xs bg-white/70 border border-amber-200/60 rounded px-2 py-1 font-mono focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] font-mono text-stone-500">
                       <span className="w-7 shrink-0">mx</span>

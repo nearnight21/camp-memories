@@ -122,3 +122,7 @@ CREATE TRIGGER future_letters_set_user_id
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS country TEXT;
 ALTER TABLE memories ADD COLUMN IF NOT EXISTS city TEXT;
 CREATE INDEX IF NOT EXISTS idx_memories_country ON memories(country);
+
+-- 11. 精确坐标支持（LocationPicker 选点存储，地图精确定位）
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS lat REAL;
+ALTER TABLE memories ADD COLUMN IF NOT EXISTS lng REAL;

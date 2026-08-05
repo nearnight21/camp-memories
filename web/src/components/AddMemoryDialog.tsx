@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Plus, Image as ImageIcon, Sparkles, Check, Upload, Loader2 } from 'lucide-react';
 import { uploadImage } from '../supabase';
 import { Memory, CategoryType, PinnedBy } from '../types';
+import LocationPicker from './LocationPicker';
 
 interface AddMemoryDialogProps {
   onClose: () => void;
@@ -24,6 +25,8 @@ export default function AddMemoryDialog({
   const [locationName, setLocationName] = useState('');
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
   // Pre-configured elegant themed Unsplash stock pools
@@ -108,6 +111,8 @@ export default function AddMemoryDialog({
       location: locationName.trim() ? { name: locationName.trim(), mx: 0, my: 0 } : undefined,
       country: country.trim() || undefined,
       city: city.trim() || undefined,
+      lat: lat ?? undefined,
+      lng: lng ?? undefined,
     });
 
     setIsSuccess(true);
@@ -230,14 +235,22 @@ export default function AddMemoryDialog({
                 <label className="text-[10px] font-bold font-mono tracking-wider text-stone-500 uppercase">
                   地点
                 </label>
-                <input
-                  id="add-input-location"
-                  type="text"
-                  placeholder="例如：京都岚山 / 大理古城"
+                <LocationPicker
                   value={locationName}
-                  onChange={(e) => setLocationName(e.target.value)}
-                  className="bg-[#fdfcf7] border border-amber-900/25 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-hidden"
+                  onChange={setLocationName}
+                  onSelect={(c) => {
+                    setLocationName(c.shortName);
+                    if (c.country) setCountry(c.country);
+                    if (c.city) setCity(c.city);
+                    setLat(c.lat);
+                    setLng(c.lng);
+                  }}
+                  placeholder="搜索并选择地点，例如：大理古城"
+                  inputClassName="w-full bg-[#fdfcf7] border border-amber-900/25 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-hidden"
                 />
+                <p className="text-[9px] text-stone-400 font-mono mt-0.5">
+                  从候选中选择后自动填入国家/城市与精确坐标；仅手动输入则地图按名称解析
+                </p>
               </div>
 
             {/* Row 2.5: Country & City（地区线钻取） */}

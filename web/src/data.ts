@@ -27,7 +27,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       my: 45
     },
     country: '日本',
-    city: '东京'
+    city: '东京',
+    lat: 35.6595,
+    lng: 139.7005
   },
   {
     id: 'scrambler-400-2024',
@@ -53,7 +55,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       my: 49
     },
     country: '日本',
-    city: '山梨'
+    city: '山梨',
+    lat: 35.3606,
+    lng: 138.7274
   },
   {
     id: 'first-apartment-2024',
@@ -102,7 +106,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       my: 60
     },
     country: '日本',
-    city: '京都'
+    city: '京都',
+    lat: 35.0094,
+    lng: 135.6722
   },
   {
     id: 'film-yashica-2025',
@@ -149,7 +155,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       my: 58
     },
     country: '日本',
-    city: '千叶'
+    city: '千叶',
+    lat: 34.9964,
+    lng: 139.8714
   },
 
   // ==================== 2026 MEMORIES ====================
@@ -177,7 +185,9 @@ export const INITIAL_MEMORIES: Memory[] = [
       my: 40
     },
     country: '日本',
-    city: '长野'
+    city: '长野',
+    lat: 36.2891,
+    lng: 137.6477
   },
   {
     id: 'studio-workspace-2026',

@@ -179,3 +179,46 @@
   letter-spacing: 0.05em;
   transform: translate(-50%, -50%);
 }
+
+/* 时间栏原生 range 滑块（暗色风格） */
+.time-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 176px;
+  height: 26px; /* 拖动热区，视觉轨道在内部 6px */
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+}
+.time-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #4c3523;
+}
+.time-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px; /* (6 - 18) / 2，使拇指对准轨道中心 */
+  border-radius: 999px;
+  background: #f59e0b;
+  border: 2px solid #1c1917;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+.time-range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #4c3523;
+}
+.time-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #f59e0b;
+  border: 2px solid #1c1917;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}

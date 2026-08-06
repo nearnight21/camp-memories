@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'motion/react';
-import { Globe2, MapPin, X } from 'lucide-react';
+import { Globe2, MapPin, X, CalendarDays } from 'lucide-react';
 import { Memory } from '../types';
 import { resolvePlace, geocodeAddress } from '../lib/geo';
 import { CITY_LABELS } from '../lib/labels';
 
-// 底图模式开关：true = 暗色无标注 + 自绘中文标注层；false = OSM 标准浅色（自带本地语言地名）
-const USE_DARK_TILE = false;
+// 底图模式：'amap' = 高德瓦片（国内直连、中文标注、浅色）；'dark' = CARTO 深色无标注 + 自绘中文标注层
+const TILE_MODE: 'amap' | 'dark' = 'amap';
 
 // 自适应层级阈值：zoom < CITY_ZOOM → 国家气泡；CITY_ZOOM ≤ zoom < POINT_ZOOM → 城市气泡；zoom ≥ POINT_ZOOM → 具体点位
 const CITY_ZOOM = 5;
@@ -66,6 +66,26 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
   const [enriched, setEnriched] = useState<Memory[]>(memories);
   // zoom 变化后 +1，触发气泡按当前缩放级别重建（自适应层级）
   const [zoomTick, setZoomTick] = useState(0);
+  // 地区线时间筛选：'all' 显示全部年份，否则只显示该年份的记忆
+  const [timeFilter, setTimeFilter] = useState<'all' | number>('all');
+  const [timeBarOpen, setTimeBarOpen] = useState(false);
+  // range 本地值（跟手拖动），外部状态变化时由 effect 同步
+  const [rangeVal, setRangeVal] = useState(0);
+
+  // 全部可用年份作为滑块的固定刻度；不能从 filtered 计算，否则选中一年后滑块会塌缩成单值
+  const allYears: number[] = Array.from(new Set<number>(enriched.map((m) => m.year))).sort(
+    (a, b) => a - b
+  );
+
+  // 外部改变筛选（点「全部时间」/年份按钮）时同步滑块位置
+  useEffect(() => {
+    setRangeVal(
+      timeFilter === 'all'
+        ? Math.max(0, allYears.length - 1)
+        : Math.max(0, allYears.indexOf(timeFilter))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeFilter]);
 
   // 只填了「地点」没填「国家」的记忆：地理编码自动归组到国家/城市气泡（结果有 localStorage 缓存）
   useEffect(() => {
@@ -92,7 +112,9 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
     };
   }, [memories]);
 
-  const unlabeled = enriched.filter((m) => !countryOf(m));
+  // 时间筛选后的数据源（气泡/面板/未标注计数共用）
+  const filtered = timeFilter === 'all' ? enriched : enriched.filter((m) => m.year === timeFilter);
+  const filteredUnlabeled = filtered.filter((m) => !countryOf(m));
 
   // --- 地图生命周期 ---
   useEffect(() => {
@@ -108,7 +130,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
       maxZoom: 14,
       attributionControl: true,
     });
-    if (USE_DARK_TILE) {
+    if (TILE_MODE === 'dark') {
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
@@ -116,16 +138,20 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
         maxZoom: 19,
       }).addTo(map);
     } else {
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map);
+      // 高德瓦片：国内直连快、中文标注（webrd0{1-4}.is.autonavi.com）
+      L.tileLayer(
+        'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+        {
+          subdomains: '1234',
+          attribution: '&copy; 高德地图',
+          maxZoom: 18,
+        }
+      ).addTo(map);
     }
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapRef.current = map;
 
-    if (USE_DARK_TILE) {
+    if (TILE_MODE === 'dark') {
       // 中文地名标注层：随缩放级别显示对应城市名（全中文）
       const labelLayer = L.layerGroup().addTo(map);
       const renderLabels = () => {
@@ -185,7 +211,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
 
       if (zoom < CITY_ZOOM) {
         // 层级 1（zoom < 5）：国家气泡
-        const countries = groupBy(enriched, countryOf);
+        const countries = groupBy(filtered, countryOf);
         for (const [country, list] of Object.entries(countries)) {
           const coords = await resolvePlace(country);
           if (cancelled || !coords) continue;
@@ -200,7 +226,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
       } else if (zoom < POINT_ZOOM) {
         // 层级 2（5 ≤ zoom < 9）：当前视野内城市气泡（同城记忆聚合）
         const bounds = map.getBounds();
-        const cities = groupBy(enriched, cityOf);
+        const cities = groupBy(filtered, cityOf);
         for (const [city, list] of Object.entries(cities)) {
           const country = countryOf(list[0]);
           const coords = await resolvePlace(country, city);
@@ -218,7 +244,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
         // 同坐标多条记忆按屏幕像素半径展开成环，避免完全重叠堆叠
         const bounds = map.getBounds();
         const byCoord = new Map<string, Memory[]>();
-        for (const m of enriched) {
+        for (const m of filtered) {
           if (cancelled) return;
           if (typeof m.lat !== 'number' || typeof m.lng !== 'number') continue;
           if (!bounds.contains([m.lat, m.lng])) continue;
@@ -258,12 +284,19 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [zoomTick, enriched]);
+  }, [zoomTick, filtered]);
 
   const backToWorld = () => {
     setPanel(null);
     setViewCountry(null);
     mapRef.current?.flyTo([35, 108], CITY_ZOOM - 1, { duration: 0.8 });
+  };
+
+  const handleTimeSliderInput = (e: FormEvent<HTMLInputElement>) => {
+    const index = Number(e.currentTarget.value);
+    setRangeVal(index);
+    const year = allYears[index];
+    if (typeof year === 'number') setTimeFilter(year);
   };
 
   return (
@@ -304,15 +337,75 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
       </nav>
 
       {/* 未标注分组入口 */}
-      {unlabeled.length > 0 && (
+      {filteredUnlabeled.length > 0 && (
         <button
-          onClick={() => setPanel({ title: '未标注地区', list: unlabeled })}
+          onClick={() => setPanel({ title: '未标注地区', list: filteredUnlabeled })}
           className="absolute top-[60px] left-5 z-[1000] flex items-center gap-1.5 text-[11px] font-mono text-[#9C947C] hover:text-amber-300 bg-stone-900/85 backdrop-blur-md border border-stone-700/50 rounded-full px-3.5 py-1.5 shadow-xl transition-colors cursor-pointer"
         >
           <MapPin className="h-3 w-3" />
-          未标注地区（{unlabeled.length}）
+          未标注地区（{filteredUnlabeled.length}）
         </button>
       )}
+
+      {/* 时间筛选开关（默认收起） */}
+      <button
+        onClick={() => setTimeBarOpen((v) => !v)}
+        className={`absolute top-4 right-5 z-[1000] flex items-center gap-1.5 text-[11px] font-mono bg-stone-900/85 backdrop-blur-md border rounded-full px-3.5 py-2 shadow-xl transition-colors cursor-pointer ${
+          timeFilter !== 'all'
+            ? 'text-amber-300 border-amber-600/50'
+            : 'text-[#9C947C] hover:text-amber-300 border-stone-700/50'
+        }`}
+        title="时间筛选"
+      >
+        <CalendarDays className="h-3.5 w-3.5" />
+        {timeFilter === 'all' ? '全部时间' : `${timeFilter}年`}
+        <span className="text-[9px]">{timeBarOpen ? '▼' : '▲'}</span>
+      </button>
+
+      {/* 时间栏（展开后显示，默认全部时间） */}
+      <AnimatePresence>
+        {timeBarOpen && allYears.length > 0 && (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-stone-900/90 backdrop-blur-md border border-stone-700/50 rounded-full px-5 py-2.5 shadow-2xl"
+          >
+            <button
+              onClick={() => setTimeFilter('all')}
+              className={`text-[11px] font-mono font-bold rounded-full px-3 py-1 transition-colors cursor-pointer ${
+                timeFilter === 'all'
+                  ? 'bg-amber-500 text-stone-950'
+                  : 'text-[#9C947C] hover:text-amber-300'
+              }`}
+            >
+              全部时间
+            </button>
+            <div className="flex items-center gap-2.5">
+              <span className="text-[10px] font-mono text-[#9C947C] min-w-7 text-right">
+                {allYears[0]}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(0, allYears.length - 1)}
+                step={1}
+                value={rangeVal}
+                onInput={handleTimeSliderInput}
+                onChange={handleTimeSliderInput}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="time-range"
+                style={{ touchAction: 'none' }}
+                aria-label="按年份筛选"
+              />
+              <span className="text-[10px] font-mono text-[#9C947C] min-w-7">
+                {allYears[allYears.length - 1]}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 城市 / 未标注记忆面板 */}
       <AnimatePresence>

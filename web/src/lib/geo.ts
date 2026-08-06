@@ -164,6 +164,14 @@ export interface PlaceCandidate {
  */
 export async function searchPlaces(query: string): Promise<PlaceCandidate[]> {
   if (!query.trim()) return [];
+  // 结果缓存：相同关键词不重复请求（Nominatim 境外，减少往返）
+  const ck = `search_${query.trim()}`;
+  try {
+    const cached = localStorage.getItem(ck);
+    if (cached) return JSON.parse(cached) as PlaceCandidate[];
+  } catch {
+    /* ignore cache errors */
+  }
   try {
     const resp = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=6&addressdetails=1&accept-language=zh`
@@ -182,7 +190,7 @@ export async function searchPlaces(query: string): Promise<PlaceCandidate[]> {
         state?: string;
       };
     }>;
-    return data.map((r) => ({
+    const results: PlaceCandidate[] = data.map((r) => ({
       displayName: r.display_name,
       shortName: r.name || r.display_name.split(',')[0],
       lat: parseFloat(r.lat),
@@ -195,6 +203,12 @@ export async function searchPlaces(query: string): Promise<PlaceCandidate[]> {
         r.address?.county ||
         r.address?.state,
     }));
+    try {
+      localStorage.setItem(ck, JSON.stringify(results));
+    } catch {
+      /* ignore cache errors */
+    }
+    return results;
   } catch {
     return [];
   }

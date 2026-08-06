@@ -41,12 +41,20 @@ function groupBy<T>(list: T[], keyFn: (item: T) => string): Record<string, T[]> 
 const escHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-function bubbleIcon(img: string, count: number, label: string): L.DivIcon {
+const fallbackImageOf = (m: Memory): string | undefined =>
+  m.gallery.find((url) => url && url !== m.image) || m.gallery.find(Boolean);
+
+function bubbleIcon(img: string, count: number, label: string, fallback?: string): L.DivIcon {
+  const primary = img || fallback || '';
+  const fallbackHandler = fallback && fallback !== primary
+    ? `this.onerror=null;this.src=${JSON.stringify(fallback)}`
+    : 'this.style.display="none"';
+
   return L.divIcon({
     className: 'map-bubble-wrap',
     html: `
       <div class="map-bubble">
-        <img src="${escHtml(img)}" referrerpolicy="no-referrer" alt="" />
+        <img src="${escHtml(primary)}" referrerpolicy="no-referrer" alt="" onerror="${escHtml(fallbackHandler)}" />
         ${count > 1 ? `<span class="map-bubble-count">${count}</span>` : ''}
         <span class="map-bubble-label">${escHtml(label)}</span>
       </div>
@@ -215,7 +223,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
         for (const [country, list] of Object.entries(countries)) {
           const coords = await resolvePlace(country);
           if (cancelled || !coords) continue;
-          L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, country) })
+          L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, country, fallbackImageOf(list[0])) })
             .on('click', () => {
               setPanel(null);
               setViewCountry(country);
@@ -232,7 +240,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
           const coords = await resolvePlace(country, city);
           if (cancelled || !coords) continue;
           if (!bounds.contains(coords)) continue;
-          L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, city) })
+          L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, city, fallbackImageOf(list[0])) })
             .on('click', () => {
               setPanel({ title: city, list });
               map.flyTo(coords, POINT_ZOOM, { duration: 0.8 });
@@ -241,14 +249,21 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
         }
       } else {
         // 层级 3（zoom ≥ 9）：视野内有坐标记忆的精确点位；
+        // 没有精确坐标的记忆回退到城市坐标，避免放大后整条记忆消失；
         // 同坐标多条记忆按屏幕像素半径展开成环，避免完全重叠堆叠
         const bounds = map.getBounds();
         const byCoord = new Map<string, Memory[]>();
         for (const m of filtered) {
           if (cancelled) return;
-          if (typeof m.lat !== 'number' || typeof m.lng !== 'number') continue;
-          if (!bounds.contains([m.lat, m.lng])) continue;
-          const key = `${m.lat.toFixed(6)},${m.lng.toFixed(6)}`;
+          let lat = m.lat;
+          let lng = m.lng;
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            const fallbackCoords = await resolvePlace(countryOf(m), cityOf(m));
+            if (cancelled || !fallbackCoords) continue;
+            [lat, lng] = fallbackCoords;
+          }
+          if (!bounds.contains([lat, lng])) continue;
+          const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
           const list = byCoord.get(key);
           if (list) list.push(m);
           else byCoord.set(key, [m]);
@@ -259,7 +274,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
         for (const [key, list] of byCoord) {
           const [lat, lng] = key.split(',').map(Number);
           if (list.length === 1) {
-            L.marker([lat, lng], { icon: bubbleIcon(list[0].image, 1, list[0].title) })
+            L.marker([lat, lng], { icon: bubbleIcon(list[0].image, 1, list[0].title, fallbackImageOf(list[0])) })
               .on('click', () => onSelectMemory(list[0]))
               .addTo(layer);
             continue;
@@ -272,7 +287,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
             const a = startAngle + i * angleStep;
             const dLat = Math.cos(a) * spreadDeg;
             const dLng = (Math.sin(a) * spreadDeg) / lngScale;
-            L.marker([lat + dLat, lng + dLng], { icon: bubbleIcon(m.image, 1, m.title) })
+            L.marker([lat + dLat, lng + dLng], { icon: bubbleIcon(m.image, 1, m.title, fallbackImageOf(m)) })
               .on('click', () => onSelectMemory(m))
               .addTo(layer);
           });
@@ -439,12 +454,21 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
                   onClick={() => onSelectMemory(m)}
                   className="w-full flex gap-3 bg-[#23211D] border border-[#3a352e] rounded-lg p-2.5 text-left hover:border-amber-600/50 transition-colors cursor-pointer group"
                 >
-                  <img
-                    src={m.image}
-                    alt={m.title}
-                    referrerPolicy="no-referrer"
-                    className="w-14 h-14 rounded-md object-cover bg-stone-900 shrink-0 group-hover:scale-[1.03] transition-transform"
-                  />
+                    <img
+                      src={m.image || fallbackImageOf(m) || ''}
+                      alt={m.title}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const fallback = fallbackImageOf(m);
+                        if (fallback && !e.currentTarget.dataset.fallbackApplied) {
+                          e.currentTarget.dataset.fallbackApplied = '1';
+                          e.currentTarget.src = fallback;
+                        } else {
+                          e.currentTarget.style.visibility = 'hidden';
+                        }
+                      }}
+                      className="w-14 h-14 rounded-md object-cover bg-stone-900 shrink-0 group-hover:scale-[1.03] transition-transform"
+                    />
                   <div className="min-w-0 flex flex-col justify-center">
                     <div className="text-xs font-semibold font-display line-clamp-1">{m.title}</div>
                     <div className="text-[10px] font-mono text-[#9C947C] mt-1">

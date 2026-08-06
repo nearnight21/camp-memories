@@ -48,7 +48,7 @@ export default function AddMemoryDialog({
       'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80',
     ],
     photography: [
-      'https://images.unsplash.com/photo-1508615070457-7baebe4003ab?auto=format&fit=crop&w=600&q=80',
+      'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&w=600&q=80',
       'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=600&q=80',
       'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&w=600&q=80',
     ],

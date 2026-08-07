@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'motion/react';
-import { Globe2, MapPin, X, CalendarDays } from 'lucide-react';
+import { CalendarDays, Check, ChevronDown, Filter, List, MapPin, X } from 'lucide-react';
 import { Memory } from '../types';
 import { resolvePlace, geocodeAddress } from '../lib/geo';
 import { CITY_LABELS } from '../lib/labels';
+import MapMemoryOverlay from './MapMemoryOverlay';
 
 // 底图模式：'amap' = 高德瓦片（国内直连、中文标注、浅色）；'dark' = CARTO 深色无标注 + 自绘中文标注层
 const TILE_MODE: 'amap' | 'dark' = 'amap';
@@ -16,7 +17,10 @@ const POINT_ZOOM = 9;
 
 interface MapViewProps {
   memories: Memory[];
+  selectedMemory: Memory | null;
   onSelectMemory: (m: Memory) => void;
+  onCloseMemory: () => void;
+  onUpdateMemory: (memory: Memory) => void;
 }
 
 interface PanelState {
@@ -44,8 +48,14 @@ const escHtml = (s: string): string =>
 const fallbackImageOf = (m: Memory): string | undefined =>
   m.gallery.find((url) => url && url !== m.image) || m.gallery.find(Boolean);
 
+const shortPlaceLabel = (label: string): string => {
+  if (label.includes('阿拉伯联合') || label.includes('阿拉伯聯合') || label === 'United Arab Emirates') return '阿联酋';
+  return label;
+};
+
 function bubbleIcon(img: string, count: number, label: string, fallback?: string): L.DivIcon {
   const primary = img || fallback || '';
+  const visibleLabel = shortPlaceLabel(label);
   const fallbackHandler = fallback && fallback !== primary
     ? `this.onerror=null;this.src=${JSON.stringify(fallback)}`
     : 'this.style.display="none"';
@@ -56,18 +66,26 @@ function bubbleIcon(img: string, count: number, label: string, fallback?: string
       <div class="map-bubble">
         <img src="${escHtml(primary)}" referrerpolicy="no-referrer" alt="" onerror="${escHtml(fallbackHandler)}" />
         ${count > 1 ? `<span class="map-bubble-count">${count}</span>` : ''}
-        <span class="map-bubble-label">${escHtml(label)}</span>
+        <span class="map-bubble-label">${escHtml(visibleLabel)}</span>
       </div>
     `,
-    iconSize: [54, 54],
-    iconAnchor: [27, 27],
+    iconSize: [76, 76],
+    iconAnchor: [38, 38],
   });
 }
 
-export default function MapView({ memories, onSelectMemory }: MapViewProps) {
+export default function MapView({
+  memories,
+  selectedMemory,
+  onSelectMemory,
+  onCloseMemory,
+  onUpdateMemory,
+}: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const [selectedAnchor, setSelectedAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [mapViewport, setMapViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   const [viewCountry, setViewCountry] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelState | null>(null);
@@ -76,7 +94,9 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
   const [zoomTick, setZoomTick] = useState(0);
   // 地区线时间筛选：'all' 显示全部年份，否则只显示该年份的记忆
   const [timeFilter, setTimeFilter] = useState<'all' | number>('all');
-  const [timeBarOpen, setTimeBarOpen] = useState(false);
+  const [timeMenuOpen, setTimeMenuOpen] = useState(false);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [countryFilter, setCountryFilter] = useState<'all' | string>('all');
   // range 本地值（跟手拖动），外部状态变化时由 effect 同步
   const [rangeVal, setRangeVal] = useState(0);
 
@@ -120,18 +140,29 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
     };
   }, [memories]);
 
-  // 时间筛选后的数据源（气泡/面板/未标注计数共用）
-  const filtered = timeFilter === 'all' ? enriched : enriched.filter((m) => m.year === timeFilter);
+  const availableCountries = Array.from(new Set(enriched.map(countryOf).filter(Boolean))).sort();
+
+  // 时间与地区筛选后的数据源（气泡/面板/未标注计数共用）
+  const timeFiltered = timeFilter === 'all' ? enriched : enriched.filter((m) => m.year === timeFilter);
+  const filtered = countryFilter === 'all'
+    ? timeFiltered
+    : timeFiltered.filter((m) => countryOf(m) === countryFilter);
   const filteredUnlabeled = filtered.filter((m) => !countryOf(m));
+  const timelineProgress = allYears.length <= 1
+    ? 100
+    : (rangeVal / (allYears.length - 1)) * 100;
+  const firstYear = allYears[0];
+  const lastYear = allYears[allYears.length - 1];
+  const yearSpan = firstYear && lastYear ? Math.max(1, lastYear - firstYear) : 0;
 
   // --- 地图生命周期 ---
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const zoomEndHandlers: (() => void)[] = [];
-    // 构造时即锁定中国视野（zoom 6：中国主体占满屏），不依赖后续计算
+    // 地区页初始展示亚洲尺度，优先呈现国家聚合与跨地区路径
     const map = L.map(containerRef.current, {
-      center: [35, 108],
-      zoom: 6,
+      center: [35, 100],
+      zoom: 4,
       zoomControl: false,
       worldCopyJump: true,
       minZoom: 2,
@@ -202,6 +233,48 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
     };
   }, []);
 
+  // 地图内展开记忆时，持续将真实点位换算为屏幕坐标，供照片展开动画和虚线连接使用。
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selectedMemory) {
+      setSelectedAnchor(null);
+      return;
+    }
+
+    let cancelled = false;
+    let selectedLatLng: L.LatLng | null = null;
+
+    const updateAnchor = () => {
+      if (!selectedLatLng || cancelled) return;
+      const point = map.latLngToContainerPoint(selectedLatLng);
+      const container = map.getContainer();
+      setSelectedAnchor({ x: point.x, y: point.y });
+      setMapViewport({ width: container.clientWidth, height: container.clientHeight });
+    };
+
+    const prepareAnchor = async () => {
+      if (Number.isFinite(selectedMemory.lat) && Number.isFinite(selectedMemory.lng)) {
+        selectedLatLng = L.latLng(selectedMemory.lat as number, selectedMemory.lng as number);
+      } else {
+        const fallback = await resolvePlace(countryOf(selectedMemory), cityOf(selectedMemory));
+        if (cancelled || !fallback) return;
+        selectedLatLng = L.latLng(fallback[0], fallback[1]);
+      }
+      updateAnchor();
+      map.on('move', updateAnchor);
+      map.on('zoom', updateAnchor);
+      map.on('resize', updateAnchor);
+    };
+
+    prepareAnchor();
+    return () => {
+      cancelled = true;
+      map.off('move', updateAnchor);
+      map.off('zoom', updateAnchor);
+      map.off('resize', updateAnchor);
+    };
+  }, [selectedMemory]);
+
   // --- 气泡构建：随缩放级别自适应层级 ---
   useEffect(() => {
     const map = mapRef.current;
@@ -220,9 +293,14 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
       if (zoom < CITY_ZOOM) {
         // 层级 1（zoom < 5）：国家气泡
         const countries = groupBy(filtered, countryOf);
+        const routePoints: Array<{ coords: L.LatLngExpression; order: number }> = [];
         for (const [country, list] of Object.entries(countries)) {
           const coords = await resolvePlace(country);
           if (cancelled || !coords) continue;
+          routePoints.push({
+            coords,
+            order: Math.min(...list.map((m) => Number(m.date.replaceAll('.', '')) || m.year)),
+          });
           L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, country, fallbackImageOf(list[0])) })
             .on('click', () => {
               setPanel(null);
@@ -231,21 +309,54 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
             })
             .addTo(layer);
         }
+        if (routePoints.length > 1) {
+          L.polyline(
+            routePoints.sort((a, b) => a.order - b.order).map((point) => point.coords),
+            {
+              color: '#A88646',
+              weight: 1.6,
+              opacity: 0.72,
+              dashArray: '2 7',
+              lineCap: 'round',
+              lineJoin: 'round',
+              interactive: false,
+            }
+          ).addTo(layer);
+        }
       } else if (zoom < POINT_ZOOM) {
         // 层级 2（5 ≤ zoom < 9）：当前视野内城市气泡（同城记忆聚合）
         const bounds = map.getBounds();
         const cities = groupBy(filtered, cityOf);
+        const routePoints: Array<{ coords: L.LatLngExpression; order: number }> = [];
         for (const [city, list] of Object.entries(cities)) {
           const country = countryOf(list[0]);
           const coords = await resolvePlace(country, city);
           if (cancelled || !coords) continue;
           if (!bounds.contains(coords)) continue;
+          routePoints.push({
+            coords,
+            order: Math.min(...list.map((m) => Number(m.date.replaceAll('.', '')) || m.year)),
+          });
           L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, city, fallbackImageOf(list[0])) })
             .on('click', () => {
               setPanel({ title: city, list });
               map.flyTo(coords, POINT_ZOOM, { duration: 0.8 });
             })
             .addTo(layer);
+        }
+        if (routePoints.length > 1) {
+          L.polyline(
+            routePoints.sort((a, b) => a.order - b.order).map((point) => point.coords),
+            {
+              color: '#A88646',
+              weight: 1.4,
+              opacity: 0.62,
+              dashArray: '2 7',
+              lineCap: 'round',
+              lineJoin: 'round',
+              interactive: false,
+            }
+          ).addTo(layer);
         }
       } else {
         // 层级 3（zoom ≥ 9）：视野内有坐标记忆的精确点位；
@@ -275,7 +386,10 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
           const [lat, lng] = key.split(',').map(Number);
           if (list.length === 1) {
             L.marker([lat, lng], { icon: bubbleIcon(list[0].image, 1, list[0].title, fallbackImageOf(list[0])) })
-              .on('click', () => onSelectMemory(list[0]))
+              .on('click', () => {
+                setPanel(null);
+                onSelectMemory(list[0]);
+              })
               .addTo(layer);
             continue;
           }
@@ -288,7 +402,10 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
             const dLat = Math.cos(a) * spreadDeg;
             const dLng = (Math.sin(a) * spreadDeg) / lngScale;
             L.marker([lat + dLat, lng + dLng], { icon: bubbleIcon(m.image, 1, m.title, fallbackImageOf(m)) })
-              .on('click', () => onSelectMemory(m))
+              .on('click', () => {
+                setPanel(null);
+                onSelectMemory(m);
+              })
               .addTo(layer);
           });
         }
@@ -304,7 +421,7 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
   const backToWorld = () => {
     setPanel(null);
     setViewCountry(null);
-    mapRef.current?.flyTo([35, 108], CITY_ZOOM - 1, { duration: 0.8 });
+    mapRef.current?.flyTo([35, 100], CITY_ZOOM - 1, { duration: 0.8 });
   };
 
   const handleTimeSliderInput = (e: FormEvent<HTMLInputElement>) => {
@@ -315,134 +432,257 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
   };
 
   return (
-    <div className="h-screen w-screen relative bg-[#1A1A18] text-[#E8DEC8]">
+    <div className="h-screen w-screen relative overflow-hidden bg-[#dbe3e8] text-[#2E2C28]">
       {/* 地图本体 */}
-      <div ref={containerRef} className="absolute inset-0 z-0" />
+      <div ref={containerRef} className="map-editorial-canvas absolute inset-0 z-0" />
 
-      {/* 面包屑 */}
-      <nav className="absolute top-4 left-5 z-[1000] flex items-center gap-1.5 text-xs font-mono text-[#9C947C] bg-stone-900/85 backdrop-blur-md border border-stone-700/50 rounded-full px-4 py-2 shadow-xl">
-        <button
-          onClick={backToWorld}
-          className={`hover:text-amber-400 transition-colors cursor-pointer ${viewCountry === null ? 'text-amber-400' : ''}`}
-        >
-          <Globe2 className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
-          地区
-        </button>
-        {viewCountry !== null && (
-          <>
-            <span>/</span>
-            <button
-              onClick={async () => {
-                setPanel(null);
-                const coords = await resolvePlace(viewCountry);
-                if (coords) mapRef.current?.flyTo(coords, CITY_ZOOM, { duration: 0.8 });
-              }}
-              className={`hover:text-amber-400 transition-colors cursor-pointer ${panel === null ? 'text-amber-400' : ''}`}
-            >
-              {viewCountry}
-            </button>
-          </>
-        )}
-        {panel !== null && (
-          <>
-            <span>/</span>
-            <span className="text-amber-400">{panel.title}</span>
-          </>
-        )}
-      </nav>
-
-      {/* 未标注分组入口 */}
-      {filteredUnlabeled.length > 0 && (
-        <button
-          onClick={() => setPanel({ title: '未标注地区', list: filteredUnlabeled })}
-          className="absolute top-[60px] left-5 z-[1000] flex items-center gap-1.5 text-[11px] font-mono text-[#9C947C] hover:text-amber-300 bg-stone-900/85 backdrop-blur-md border border-stone-700/50 rounded-full px-3.5 py-1.5 shadow-xl transition-colors cursor-pointer"
-        >
-          <MapPin className="h-3 w-3" />
-          未标注地区（{filteredUnlabeled.length}）
-        </button>
-      )}
-
-      {/* 时间筛选开关（默认收起） */}
-      <button
-        onClick={() => setTimeBarOpen((v) => !v)}
-        className={`absolute top-4 right-5 z-[1000] flex items-center gap-1.5 text-[11px] font-mono bg-stone-900/85 backdrop-blur-md border rounded-full px-3.5 py-2 shadow-xl transition-colors cursor-pointer ${
-          timeFilter !== 'all'
-            ? 'text-amber-300 border-amber-600/50'
-            : 'text-[#9C947C] hover:text-amber-300 border-stone-700/50'
+      {/* 页面标题与地区层级 */}
+      <header
+        className={`pointer-events-none absolute z-[1002] text-[#302F2B] ${
+          selectedMemory ? 'left-[82px] top-8' : 'map-page-heading left-[112px] top-8'
         }`}
-        title="时间筛选"
       >
-        <CalendarDays className="h-3.5 w-3.5" />
-        {timeFilter === 'all' ? '全部时间' : `${timeFilter}年`}
-        <span className="text-[9px]">{timeBarOpen ? '▼' : '▲'}</span>
-      </button>
-
-      {/* 时间栏（展开后显示，默认全部时间） */}
-      <AnimatePresence>
-        {timeBarOpen && allYears.length > 0 && (
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 20, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-stone-900/90 backdrop-blur-md border border-stone-700/50 rounded-full px-5 py-2.5 shadow-2xl"
-          >
-            <button
-              onClick={() => setTimeFilter('all')}
-              className={`text-[11px] font-mono font-bold rounded-full px-3 py-1 transition-colors cursor-pointer ${
-                timeFilter === 'all'
-                  ? 'bg-amber-500 text-stone-950'
-                  : 'text-[#9C947C] hover:text-amber-300'
-              }`}
-            >
-              全部时间
-            </button>
-            <div className="flex items-center gap-2.5">
-              <span className="text-[10px] font-mono text-[#9C947C] min-w-7 text-right">
-                {allYears[0]}
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={Math.max(0, allYears.length - 1)}
-                step={1}
-                value={rangeVal}
-                onInput={handleTimeSliderInput}
-                onChange={handleTimeSliderInput}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="time-range"
-                style={{ touchAction: 'none' }}
-                aria-label="按年份筛选"
-              />
-              <span className="text-[10px] font-mono text-[#9C947C] min-w-7">
-                {allYears[allYears.length - 1]}
-              </span>
+        {selectedMemory ? (
+          <nav className="pointer-events-auto flex items-center gap-2 font-editorial-serif text-[13px] tracking-[0.12em] text-[#7E6230]" aria-label="地点层级">
+            <button type="button" onClick={onCloseMemory} className="transition-colors hover:text-[#513B1C] cursor-pointer">足迹</button>
+            {[selectedMemory.country, selectedMemory.city, selectedMemory.location?.name]
+              .map((part) => part?.trim())
+              .filter((part, index, list): part is string => Boolean(part) && list.indexOf(part) === index)
+              .map((part) => <span key={part}>/ {part}</span>)}
+          </nav>
+        ) : (
+          <>
+            <div className="pointer-events-auto flex items-center gap-2 font-editorial-serif text-[11px] tracking-[0.16em] text-[#927846]">
+              <button type="button" onClick={backToWorld} className="transition-colors hover:text-[#6F572E] cursor-pointer">
+                MEMORIES / PLACES
+              </button>
+              {viewCountry && <span>/ {viewCountry}</span>}
             </div>
-          </motion.div>
+            <h1 className="font-editorial-serif mt-2 text-[38px] leading-none tracking-[0.08em] sm:text-[48px]">
+              走过的地方
+            </h1>
+            <p className="mt-3 text-[12px] tracking-[0.1em] text-[#4F4C45]">
+              {enriched.length} 段记忆&nbsp;&nbsp;·&nbsp;&nbsp;{availableCountries.length} 个国家&nbsp;&nbsp;·&nbsp;&nbsp;{yearSpan} 年
+            </p>
+          </>
         )}
-      </AnimatePresence>
+      </header>
+
+      {/* 顶部时间与地区筛选 */}
+      {!selectedMemory && <div className="absolute right-5 top-6 z-[1002] flex items-start gap-2.5">
+        <div className="relative">
+          <button
+            id="btn-toggle-map-time"
+            type="button"
+            onClick={() => {
+              setTimeMenuOpen((open) => !open);
+              setFilterMenuOpen(false);
+            }}
+            aria-label="选择时间"
+            aria-expanded={timeMenuOpen}
+            className="flex h-10 items-center gap-2 rounded-full border border-[#AFA99B]/65 bg-[#FAF7EF]/94 px-4 text-[12px] text-[#37352F] shadow-[0_5px_16px_rgba(52,48,41,0.14)] backdrop-blur-md transition-colors hover:bg-white cursor-pointer"
+          >
+            <CalendarDays className="h-4 w-4" strokeWidth={1.6} />
+            <span>{timeFilter === 'all' ? '全部时间' : `${timeFilter} 年`}</span>
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${timeMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <AnimatePresence>
+            {timeMenuOpen && (
+              <motion.div
+                initial={{ y: -6, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -4, opacity: 0 }}
+                className="absolute right-0 mt-2 w-36 overflow-hidden rounded-xl border border-[#B8B1A2]/65 bg-[#FAF7EF]/98 p-1.5 shadow-[0_12px_30px_rgba(50,46,39,0.18)] backdrop-blur-md"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTimeFilter('all');
+                    setTimeMenuOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] hover:bg-[#EDE7DA] cursor-pointer"
+                >
+                  全部时间
+                  {timeFilter === 'all' && <Check className="h-3.5 w-3.5 text-[#9B7A38]" />}
+                </button>
+                {allYears.map((year) => (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={() => {
+                      setTimeFilter(year);
+                      setTimeMenuOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-mono text-[11px] hover:bg-[#EDE7DA] cursor-pointer"
+                  >
+                    {year}
+                    {timeFilter === year && <Check className="h-3.5 w-3.5 text-[#9B7A38]" />}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="relative">
+          <button
+            id="btn-toggle-map-filter"
+            type="button"
+            onClick={() => {
+              setFilterMenuOpen((open) => !open);
+              setTimeMenuOpen(false);
+            }}
+            aria-label="筛选地区"
+            aria-expanded={filterMenuOpen}
+            className="flex h-10 items-center gap-2 rounded-full border border-[#AFA99B]/65 bg-[#FAF7EF]/94 px-4 text-[12px] text-[#37352F] shadow-[0_5px_16px_rgba(52,48,41,0.14)] backdrop-blur-md transition-colors hover:bg-white cursor-pointer"
+          >
+            <Filter className="h-4 w-4" strokeWidth={1.6} />
+            <span>{countryFilter === 'all' ? '筛选' : countryFilter}</span>
+          </button>
+          <AnimatePresence>
+            {filterMenuOpen && (
+              <motion.div
+                initial={{ y: -6, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -4, opacity: 0 }}
+                className="absolute right-0 mt-2 w-40 overflow-hidden rounded-xl border border-[#B8B1A2]/65 bg-[#FAF7EF]/98 p-1.5 shadow-[0_12px_30px_rgba(50,46,39,0.18)] backdrop-blur-md"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCountryFilter('all');
+                    setFilterMenuOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] hover:bg-[#EDE7DA] cursor-pointer"
+                >
+                  全部地区
+                  {countryFilter === 'all' && <Check className="h-3.5 w-3.5 text-[#9B7A38]" />}
+                </button>
+                {availableCountries.map((country) => (
+                  <button
+                    key={country}
+                    type="button"
+                    onClick={() => {
+                      setCountryFilter(country);
+                      setFilterMenuOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[11px] hover:bg-[#EDE7DA] cursor-pointer"
+                  >
+                    {country}
+                    {countryFilter === country && <Check className="h-3.5 w-3.5 text-[#9B7A38]" />}
+                  </button>
+                ))}
+                {filteredUnlabeled.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPanel({ title: '未标注地区', list: filteredUnlabeled });
+                      setFilterMenuOpen(false);
+                    }}
+                    className="mt-1 flex w-full items-center gap-2 border-t border-[#D4CDBF] px-3 pt-2.5 pb-2 text-left text-[10px] text-[#756F63] hover:text-[#9B7A38] cursor-pointer"
+                  >
+                    <MapPin className="h-3.5 w-3.5" />
+                    未标注地区（{filteredUnlabeled.length}）
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>}
+
+      {/* 设计稿中的浅色主时间轴，始终作为地区页第二视觉重心 */}
+      {allYears.length > 0 && !selectedMemory && (
+        <motion.section
+          initial={{ y: 24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          aria-label="地区记忆时间轴"
+          className="map-timeline-panel absolute bottom-6 left-[calc(50%+43px)] z-[1000] w-[calc(100vw-130px)] max-w-[900px] -translate-x-1/2 overflow-hidden rounded-2xl border border-[#B9B1A2]/70 bg-[#FAF7EF]/95 text-[#302E29] shadow-[0_14px_36px_rgba(67,61,51,0.2)] backdrop-blur-lg"
+        >
+          <div className="grid min-h-[126px] grid-cols-[112px_minmax(0,1fr)_78px] items-center gap-4 px-5 py-4 sm:grid-cols-[160px_minmax(0,1fr)_106px] sm:gap-6 sm:px-8">
+            <div>
+              <h2 className="font-editorial-serif text-[24px] leading-none tracking-[0.05em] sm:text-[30px]" aria-live="polite">
+                {timeFilter === 'all' ? '全部时光' : timeFilter}
+              </h2>
+              <p className="mt-3 text-[11px] tracking-[0.08em] text-[#655F55]">{filtered.length} 段记忆</p>
+            </div>
+
+            <div className="min-w-0">
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-x-[11px] top-1/2 flex -translate-y-1/2 items-center justify-between">
+                  {allYears.map((year) => (
+                    <span key={year} className="h-1.5 w-1.5 rounded-full bg-[#A98A4A]/55" />
+                  ))}
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, allYears.length - 1)}
+                  step={1}
+                  value={rangeVal}
+                  onInput={handleTimeSliderInput}
+                  onChange={handleTimeSliderInput}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="map-timeline-range relative z-10 w-full"
+                  style={{
+                    touchAction: 'none',
+                    '--timeline-progress': `${timelineProgress}%`,
+                  } as CSSProperties}
+                  aria-label="按年份筛选"
+                  aria-valuetext={allYears[rangeVal] ? `${allYears[rangeVal]} 年` : undefined}
+                />
+              </div>
+              <div className="mt-1 flex items-center justify-between font-mono text-[9px] text-[#615C52] sm:text-[10px]">
+                {allYears.map((year) => (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={() => setTimeFilter(year)}
+                    className={`transition-colors cursor-pointer ${timeFilter === year ? 'font-bold text-[#9B762E]' : 'hover:text-[#9B762E]'}`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex h-16 items-center justify-end border-l border-[#CFC7B8] pl-3 sm:pl-5">
+              <button
+                type="button"
+                onClick={() => setPanel({ title: timeFilter === 'all' ? '全部记忆' : `${timeFilter} 年`, list: filtered })}
+                className="flex items-center gap-1.5 whitespace-nowrap text-[10px] tracking-[0.08em] text-[#514D45] transition-colors hover:text-[#9B762E] cursor-pointer sm:text-[11px]"
+              >
+                <List className="h-3.5 w-3.5 sm:hidden" />
+                <span className="hidden sm:inline">查看列表</span>
+                <ChevronDown className="hidden h-3.5 w-3.5 -rotate-90 sm:block" />
+              </button>
+            </div>
+          </div>
+        </motion.section>
+      )}
 
       {/* 城市 / 未标注记忆面板 */}
       <AnimatePresence>
-        {panel !== null && (
+        {panel !== null && !selectedMemory && (
           <motion.aside
             initial={{ x: 320, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 320, opacity: 0 }}
             transition={{ type: 'spring', damping: 26, stiffness: 260 }}
-            className="absolute top-0 right-0 h-full w-[300px] bg-[#1A1A18]/95 backdrop-blur-md border-l border-[#3a352e] z-[1001] overflow-y-auto"
+            className="absolute top-0 right-0 z-[1003] h-full w-[300px] overflow-y-auto border-l border-[#BDB5A7] bg-[#F8F4EA]/96 text-[#302E29] shadow-[-16px_0_36px_rgba(55,50,42,0.14)] backdrop-blur-md"
           >
-            <div className="sticky top-0 bg-[#1A1A18]/95 backdrop-blur-md border-b border-[#3a352e] px-4 py-3.5 flex items-center justify-between z-10">
-              <h3 className="text-sm font-bold font-display flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 text-amber-500" />
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#D2CABD] bg-[#F8F4EA]/96 px-4 py-4 backdrop-blur-md">
+              <h3 className="font-editorial-serif flex items-center gap-1.5 text-sm font-bold">
+                <MapPin className="h-4 w-4 text-[#A5823D]" />
                 {panel.title}
-                <span className="text-[10px] font-mono text-[#9C947C] font-normal">
+                <span className="font-mono text-[10px] font-normal text-[#7A746A]">
                   {panel.list.length} 条
                 </span>
               </h3>
               <button
                 onClick={() => setPanel(null)}
-                className="p-1 text-stone-400 hover:text-stone-200 hover:bg-stone-800 rounded-full transition-colors cursor-pointer"
+                className="rounded-full p-1 text-[#7A746A] transition-colors hover:bg-[#E9E3D7] hover:text-[#302E29] cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -451,8 +691,11 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
               {panel.list.map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => onSelectMemory(m)}
-                  className="w-full flex gap-3 bg-[#23211D] border border-[#3a352e] rounded-lg p-2.5 text-left hover:border-amber-600/50 transition-colors cursor-pointer group"
+                  onClick={() => {
+                    setPanel(null);
+                    onSelectMemory(m);
+                  }}
+                  className="group flex w-full gap-3 rounded-lg border border-[#D8D0C2] bg-white/45 p-2.5 text-left transition-colors hover:border-[#A98A4A]/70 hover:bg-white/70 cursor-pointer"
                 >
                     <img
                       src={m.image || fallbackImageOf(m) || ''}
@@ -467,11 +710,11 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
                           e.currentTarget.style.visibility = 'hidden';
                         }
                       }}
-                      className="w-14 h-14 rounded-md object-cover bg-stone-900 shrink-0 group-hover:scale-[1.03] transition-transform"
+                      className="h-14 w-14 shrink-0 rounded-md bg-[#DDD5C6] object-cover transition-transform group-hover:scale-[1.03]"
                     />
                   <div className="min-w-0 flex flex-col justify-center">
-                    <div className="text-xs font-semibold font-display line-clamp-1">{m.title}</div>
-                    <div className="text-[10px] font-mono text-[#9C947C] mt-1">
+                    <div className="font-editorial-serif line-clamp-1 text-xs font-semibold">{m.title}</div>
+                    <div className="mt-1 font-mono text-[10px] text-[#7A746A]">
                       {m.date}
                       {m.tag ? ` · ${m.tag}` : ''}
                     </div>
@@ -480,6 +723,18 @@ export default function MapView({ memories, onSelectMemory }: MapViewProps) {
               ))}
             </div>
           </motion.aside>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedMemory && (
+          <MapMemoryOverlay
+            memory={selectedMemory}
+            anchor={selectedAnchor}
+            viewport={mapViewport}
+            onClose={onCloseMemory}
+            onUpdateMemory={onUpdateMemory}
+          />
         )}
       </AnimatePresence>
     </div>

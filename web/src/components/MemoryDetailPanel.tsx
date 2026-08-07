@@ -20,9 +20,8 @@ export default function MemoryDetailPanel({
   const [presentText, setPresentText] = useState(memory.presentSelf);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [showAddImage, setShowAddImage] = useState(false);
-  const [photoIdx, setPhotoIdx] = useState(
-    memory.gallery && memory.gallery.length > 0 ? 1 : 0
-  );
+  // 新增记忆的首图是封面；默认先展示封面，再由用户选择随附照片。
+  const [photoIdx, setPhotoIdx] = useState(0);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");

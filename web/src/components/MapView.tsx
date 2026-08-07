@@ -53,6 +53,24 @@ const shortPlaceLabel = (label: string): string => {
   return label;
 };
 
+const isChinaCountry = (country: string): boolean => {
+  const normalized = country.trim();
+  return normalized === '中国' || normalized.includes('中国') || normalized.includes('中國');
+};
+
+const averageMemoryCoordinates = (list: Memory[]): [number, number] | null => {
+  const points = list.filter(
+    (memory): memory is Memory & { lat: number; lng: number } =>
+      typeof memory.lat === 'number' && Number.isFinite(memory.lat) &&
+      typeof memory.lng === 'number' && Number.isFinite(memory.lng)
+  );
+  if (points.length === 0) return null;
+  return [
+    points.reduce((sum, memory) => sum + memory.lat, 0) / points.length,
+    points.reduce((sum, memory) => sum + memory.lng, 0) / points.length,
+  ];
+};
+
 function bubbleIcon(img: string, count: number, label: string, fallback?: string): L.DivIcon {
   const primary = img || fallback || '';
   const visibleLabel = shortPlaceLabel(label);
@@ -289,24 +307,44 @@ export default function MapView({
 
     const build = async () => {
       const zoom = map.getZoom();
+      const handleCountryClick = (country: string, list: Memory[], coords: L.LatLngExpression) => {
+        if (!isChinaCountry(country)) {
+          setPanel(list.length === 1 ? null : { title: shortPlaceLabel(country), list });
+          setViewCountry(null);
+          if (list.length === 1) onSelectMemory(list[0]);
+          return;
+        }
+        setPanel(null);
+        setViewCountry(country);
+        map.flyTo(coords, CITY_ZOOM, { duration: 0.8 });
+      };
+
+      const addForeignCountryMarkers = async () => {
+        const foreignCountries = groupBy(filtered.filter((memory) => !isChinaCountry(countryOf(memory))), countryOf);
+        for (const [country, list] of Object.entries(foreignCountries)) {
+          const coords = averageMemoryCoordinates(list) || await resolvePlace(country);
+          if (cancelled || !coords) continue;
+          L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, country, fallbackImageOf(list[0])) })
+            .on('click', () => handleCountryClick(country, list, coords))
+            .addTo(layer);
+        }
+      };
 
       if (zoom < CITY_ZOOM) {
         // 层级 1（zoom < 5）：国家气泡
         const countries = groupBy(filtered, countryOf);
         const routePoints: Array<{ coords: L.LatLngExpression; order: number }> = [];
         for (const [country, list] of Object.entries(countries)) {
-          const coords = await resolvePlace(country);
+          const coords = isChinaCountry(country)
+            ? await resolvePlace(country)
+            : averageMemoryCoordinates(list) || await resolvePlace(country);
           if (cancelled || !coords) continue;
           routePoints.push({
             coords,
             order: Math.min(...list.map((m) => Number(m.date.replaceAll('.', '')) || m.year)),
           });
           L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, country, fallbackImageOf(list[0])) })
-            .on('click', () => {
-              setPanel(null);
-              setViewCountry(country);
-              map.flyTo(coords, CITY_ZOOM, { duration: 0.8 });
-            })
+            .on('click', () => handleCountryClick(country, list, coords))
             .addTo(layer);
         }
         if (routePoints.length > 1) {
@@ -324,9 +362,13 @@ export default function MapView({
           ).addTo(layer);
         }
       } else if (zoom < POINT_ZOOM) {
+        // 海外地区保持国家级气泡，不因缩放或中国的层级钻取而消失。
+        await addForeignCountryMarkers();
+
         // 层级 2（5 ≤ zoom < 9）：当前视野内城市气泡（同城记忆聚合）
         const bounds = map.getBounds();
-        const cities = groupBy(filtered, cityOf);
+        const chinaMemories = filtered.filter((memory) => isChinaCountry(countryOf(memory)));
+        const cities = groupBy(chinaMemories, cityOf);
         const routePoints: Array<{ coords: L.LatLngExpression; order: number }> = [];
         for (const [city, list] of Object.entries(cities)) {
           const country = countryOf(list[0]);
@@ -359,12 +401,16 @@ export default function MapView({
           ).addTo(layer);
         }
       } else {
+        // 海外地区仍保持国家级气泡，中国才进入精确点位层级。
+        await addForeignCountryMarkers();
+
         // 层级 3（zoom ≥ 9）：视野内有坐标记忆的精确点位；
         // 没有精确坐标的记忆回退到城市坐标，避免放大后整条记忆消失；
         // 同坐标多条记忆按屏幕像素半径展开成环，避免完全重叠堆叠
         const bounds = map.getBounds();
         const byCoord = new Map<string, Memory[]>();
-        for (const m of filtered) {
+        const chinaMemories = filtered.filter((memory) => isChinaCountry(countryOf(memory)));
+        for (const m of chinaMemories) {
           if (cancelled) return;
           let lat = m.lat;
           let lng = m.lng;

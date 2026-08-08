@@ -176,7 +176,7 @@ export default function MapView({
   // --- 地图生命周期 ---
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const zoomEndHandlers: (() => void)[] = [];
+    const mapEventHandlers: Array<{ event: string; handler: () => void }> = [];
     // 地区页初始展示亚洲尺度，优先呈现国家聚合与跨地区路径
     const map = L.map(containerRef.current, {
       center: [35, 100],
@@ -195,13 +195,28 @@ export default function MapView({
         maxZoom: 19,
       }).addTo(map);
     } else {
+      // 高德 style=8 在 zoom 2 会返回近乎纯色的全图瓦片；
+      // OSM 固定以 zoom 2 的世界底图作为兜底，缩放时也不会出现纯色空白。
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        minZoom: 2,
+        maxZoom: 18,
+        maxNativeZoom: 2,
+        keepBuffer: 4,
+        updateWhenZooming: false,
+        zIndex: 0,
+      }).addTo(map);
+
       // 高德瓦片：国内直连快、中文标注（webrd0{1-4}.is.autonavi.com）
       L.tileLayer(
         'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
         {
           subdomains: '1234',
           attribution: '&copy; 高德地图',
+          minZoom: 3,
           maxZoom: 18,
+          zIndex: 1,
         }
       ).addTo(map);
     }
@@ -227,10 +242,10 @@ export default function MapView({
       };
       renderLabels();
       map.on('zoomend', renderLabels);
-      zoomEndHandlers.push(renderLabels);
+      mapEventHandlers.push({ event: 'zoomend', handler: renderLabels });
     }
 
-    // 缩放变化：回退层级状态并触发气泡按新缩放级别重建（自适应）
+    // 缩放/平移变化：触发气泡按新视口与缩放级别重建（自适应）
     const onZoomEnd = () => {
       if (map.getZoom() < CITY_ZOOM) {
         setViewCountry(null);
@@ -239,12 +254,28 @@ export default function MapView({
       setZoomTick((t) => t + 1);
     };
     map.on('zoomend', onZoomEnd);
-    zoomEndHandlers.push(onZoomEnd);
+    mapEventHandlers.push({ event: 'zoomend', handler: onZoomEnd });
 
-    // 容器尺寸就绪后仅修正尺寸，不改变视野
-    setTimeout(() => map.invalidateSize(), 60);
+    // 只监听 zoomend 会导致拖动到新区域后仍显示旧图片点位。
+    const onMoveEnd = () => setZoomTick((t) => t + 1);
+    map.on('moveend', onMoveEnd);
+    mapEventHandlers.push({ event: 'moveend', handler: onMoveEnd });
+
+    // 全屏/窗口尺寸变化后重新计算 Leaflet 视口，避免瓦片和图片标记错位。
+    const onResize = () => {
+      map.invalidateSize({ pan: false });
+      setZoomTick((t) => t + 1);
+    };
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(onResize)
+      : null;
+    resizeObserver?.observe(containerRef.current);
+    window.addEventListener('resize', onResize);
+    map.invalidateSize({ pan: false });
     return () => {
-      zoomEndHandlers.forEach((h) => map.off('zoomend', h));
+      mapEventHandlers.forEach(({ event, handler }) => map.off(event, handler));
+      window.removeEventListener('resize', onResize);
+      resizeObserver?.disconnect();
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
@@ -366,7 +397,8 @@ export default function MapView({
         await addForeignCountryMarkers();
 
         // 层级 2（5 ≤ zoom < 9）：当前视野内城市气泡（同城记忆聚合）
-        const bounds = map.getBounds();
+        // 给气泡图标预留边缘空间，避免图片中心在视口边缘时被误判为不可见。
+        const bounds = map.getBounds().pad(0.2);
         const chinaMemories = filtered.filter((memory) => isChinaCountry(countryOf(memory)));
         const cities = groupBy(chinaMemories, cityOf);
         const routePoints: Array<{ coords: L.LatLngExpression; order: number }> = [];
@@ -407,7 +439,8 @@ export default function MapView({
         // 层级 3（zoom ≥ 9）：视野内有坐标记忆的精确点位；
         // 没有精确坐标的记忆回退到城市坐标，避免放大后整条记忆消失；
         // 同坐标多条记忆按屏幕像素半径展开成环，避免完全重叠堆叠
-        const bounds = map.getBounds();
+        // 给气泡图标预留边缘空间，避免图片中心在视口边缘时被误判为不可见。
+        const bounds = map.getBounds().pad(0.2);
         const byCoord = new Map<string, Memory[]>();
         const chinaMemories = filtered.filter((memory) => isChinaCountry(countryOf(memory)));
         for (const m of chinaMemories) {

@@ -47,6 +47,10 @@ const PRESET_PLACES: Record<string, LatLng> = {
 const cacheKey = (country: string, city?: string) =>
   `geo_${country}${city ? `/${city}` : ''}`;
 
+// 页面生命周期内的内存缓存和进行中的请求缓存，避免地图重建时重复访问地理编码服务。
+const resolvedPlaceCache = new Map<string, LatLng | null>();
+const pendingPlaceRequests = new Map<string, Promise<LatLng | null>>();
+
 /**
  * 解析 国家 / 国家+城市 的坐标。
  * 顺序：预置表 → localStorage 缓存 → Nominatim 查询（并写入缓存）。
@@ -57,6 +61,22 @@ export async function resolvePlace(country: string, city?: string): Promise<LatL
   if (PRESET_PLACES[presetKey]) return PRESET_PLACES[presetKey];
 
   const ck = cacheKey(country, city);
+  if (resolvedPlaceCache.has(ck)) return resolvedPlaceCache.get(ck) ?? null;
+  const pending = pendingPlaceRequests.get(ck);
+  if (pending) return pending;
+
+  const request = resolvePlaceFromNetwork(country, city, ck);
+  pendingPlaceRequests.set(ck, request);
+  try {
+    const result = await request;
+    resolvedPlaceCache.set(ck, result);
+    return result;
+  } finally {
+    pendingPlaceRequests.delete(ck);
+  }
+}
+
+async function resolvePlaceFromNetwork(country: string, city: string | undefined, ck: string): Promise<LatLng | null> {
   try {
     const cached = localStorage.getItem(ck);
     if (cached) {

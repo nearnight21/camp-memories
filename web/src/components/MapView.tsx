@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'motion/react';
@@ -48,6 +48,49 @@ const escHtml = (s: string): string =>
 const fallbackImageOf = (m: Memory): string | undefined =>
   m.gallery.find((url) => url && url !== m.image) || m.gallery.find(Boolean);
 
+const mapImageUrl = (url: string): string => {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.endsWith('images.unsplash.com')) {
+      parsed.searchParams.set('w', '160');
+      parsed.searchParams.set('q', '62');
+      parsed.searchParams.set('fit', 'crop');
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+};
+
+const stableHash = (value: string): number => {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  worker: (item: T) => Promise<R>,
+  concurrency = 3,
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const run = async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
+  return results;
+}
+
 const shortPlaceLabel = (label: string): string => {
   if (label.includes('阿拉伯联合') || label.includes('阿拉伯聯合') || label === 'United Arab Emirates') return '阿联酋';
   return label;
@@ -72,17 +115,18 @@ const averageMemoryCoordinates = (list: Memory[]): [number, number] | null => {
 };
 
 function bubbleIcon(img: string, count: number, label: string, fallback?: string): L.DivIcon {
-  const primary = img || fallback || '';
+  const primary = mapImageUrl(img || fallback || '');
+  const fallbackUrl = fallback ? mapImageUrl(fallback) : undefined;
   const visibleLabel = shortPlaceLabel(label);
-  const fallbackHandler = fallback && fallback !== primary
-    ? `this.onerror=null;this.src=${JSON.stringify(fallback)}`
+  const fallbackHandler = fallbackUrl && fallbackUrl !== primary
+    ? `this.onerror=null;this.src=${JSON.stringify(fallbackUrl)}`
     : 'this.style.display="none"';
 
   return L.divIcon({
     className: 'map-bubble-wrap',
     html: `
       <div class="map-bubble">
-        <img src="${escHtml(primary)}" referrerpolicy="no-referrer" alt="" onerror="${escHtml(fallbackHandler)}" />
+        <img src="${escHtml(primary)}" referrerpolicy="no-referrer" alt="" decoding="async" onerror="${escHtml(fallbackHandler)}" />
         ${count > 1 ? `<span class="map-bubble-count">${count}</span>` : ''}
         <span class="map-bubble-label">${escHtml(visibleLabel)}</span>
       </div>
@@ -102,6 +146,7 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const [baseMapReady, setBaseMapReady] = useState(false);
   const [selectedAnchor, setSelectedAnchor] = useState<{ x: number; y: number } | null>(null);
   const [mapViewport, setMapViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
 
@@ -119,8 +164,9 @@ export default function MapView({
   const [rangeVal, setRangeVal] = useState(0);
 
   // 全部可用年份作为滑块的固定刻度；不能从 filtered 计算，否则选中一年后滑块会塌缩成单值
-  const allYears: number[] = Array.from(new Set<number>(enriched.map((m) => m.year))).sort(
-    (a, b) => a - b
+  const allYears: number[] = useMemo(
+    () => Array.from(new Set<number>(enriched.map((m) => m.year))).sort((a, b) => a - b),
+    [enriched]
   );
 
   // 外部改变筛选（点「全部时间」/年份按钮）时同步滑块位置
@@ -158,14 +204,23 @@ export default function MapView({
     };
   }, [memories]);
 
-  const availableCountries = Array.from(new Set(enriched.map(countryOf).filter(Boolean))).sort();
+  const availableCountries = useMemo(
+    () => Array.from(new Set(enriched.map(countryOf).filter(Boolean))).sort(),
+    [enriched]
+  );
 
   // 时间与地区筛选后的数据源（气泡/面板/未标注计数共用）
-  const timeFiltered = timeFilter === 'all' ? enriched : enriched.filter((m) => m.year === timeFilter);
-  const filtered = countryFilter === 'all'
-    ? timeFiltered
-    : timeFiltered.filter((m) => countryOf(m) === countryFilter);
-  const filteredUnlabeled = filtered.filter((m) => !countryOf(m));
+  const timeFiltered = useMemo(
+    () => timeFilter === 'all' ? enriched : enriched.filter((m) => m.year === timeFilter),
+    [enriched, timeFilter]
+  );
+  const filtered = useMemo(
+    () => countryFilter === 'all'
+      ? timeFiltered
+      : timeFiltered.filter((m) => countryOf(m) === countryFilter),
+    [timeFiltered, countryFilter]
+  );
+  const filteredUnlabeled = useMemo(() => filtered.filter((m) => !countryOf(m)), [filtered]);
   const timelineProgress = allYears.length <= 1
     ? 100
     : (rangeVal / (allYears.length - 1)) * 100;
@@ -177,11 +232,15 @@ export default function MapView({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const mapEventHandlers: Array<{ event: string; handler: () => void }> = [];
+    const markBaseMapReady = () => setBaseMapReady(true);
+    const readyFallbackTimer = window.setTimeout(markBaseMapReady, 2600);
     // 地区页初始展示亚洲尺度，优先呈现国家聚合与跨地区路径
     const map = L.map(containerRef.current, {
       center: [35, 100],
       zoom: 4,
       zoomControl: false,
+      zoomAnimation: true,
+      markerZoomAnimation: true,
       worldCopyJump: true,
       minZoom: 2,
       maxZoom: 14,
@@ -197,7 +256,7 @@ export default function MapView({
     } else {
       // 高德 style=8 在 zoom 2 会返回近乎纯色的全图瓦片；
       // OSM 固定以 zoom 2 的世界底图作为兜底，缩放时也不会出现纯色空白。
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      const fallbackTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         minZoom: 2,
@@ -205,20 +264,28 @@ export default function MapView({
         maxNativeZoom: 2,
         keepBuffer: 4,
         updateWhenZooming: false,
+        updateWhenIdle: true,
+        updateInterval: 120,
         zIndex: 0,
-      }).addTo(map);
+      });
+      fallbackTiles.once('load', () => window.setTimeout(markBaseMapReady, 120)).addTo(map);
 
       // 高德瓦片：国内直连快、中文标注（webrd0{1-4}.is.autonavi.com）
-      L.tileLayer(
+      const amapTiles = L.tileLayer(
         'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
         {
           subdomains: '1234',
           attribution: '&copy; 高德地图',
           minZoom: 3,
           maxZoom: 18,
+          keepBuffer: 4,
+          updateWhenZooming: false,
+          updateWhenIdle: true,
+          updateInterval: 120,
           zIndex: 1,
         }
-      ).addTo(map);
+      );
+      amapTiles.once('load', markBaseMapReady).addTo(map);
     }
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapRef.current = map;
@@ -276,6 +343,7 @@ export default function MapView({
       mapEventHandlers.forEach(({ event, handler }) => map.off(event, handler));
       window.removeEventListener('resize', onResize);
       resizeObserver?.disconnect();
+      window.clearTimeout(readyFallbackTimer);
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
@@ -328,11 +396,8 @@ export default function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (!layerRef.current) {
-      layerRef.current = L.layerGroup().addTo(map);
-    }
-    const layer = layerRef.current;
-    layer.clearLayers();
+    const previousLayer = layerRef.current;
+    const nextLayer = L.layerGroup();
 
     let cancelled = false;
 
@@ -352,12 +417,15 @@ export default function MapView({
 
       const addForeignCountryMarkers = async () => {
         const foreignCountries = groupBy(filtered.filter((memory) => !isChinaCountry(countryOf(memory))), countryOf);
-        for (const [country, list] of Object.entries(foreignCountries)) {
-          const coords = averageMemoryCoordinates(list) || await resolvePlace(country);
+        const resolvedCountries = await mapWithConcurrency(
+          Object.entries(foreignCountries),
+          async ([country, list]) => ({ country, list, coords: averageMemoryCoordinates(list) || await resolvePlace(country) }),
+        );
+        for (const { country, list, coords } of resolvedCountries) {
           if (cancelled || !coords) continue;
           L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, country, fallbackImageOf(list[0])) })
             .on('click', () => handleCountryClick(country, list, coords))
-            .addTo(layer);
+            .addTo(nextLayer);
         }
       };
 
@@ -365,10 +433,17 @@ export default function MapView({
         // 层级 1（zoom < 5）：国家气泡
         const countries = groupBy(filtered, countryOf);
         const routePoints: Array<{ coords: L.LatLngExpression; order: number }> = [];
-        for (const [country, list] of Object.entries(countries)) {
-          const coords = isChinaCountry(country)
-            ? await resolvePlace(country)
-            : averageMemoryCoordinates(list) || await resolvePlace(country);
+        const resolvedCountries = await mapWithConcurrency(
+          Object.entries(countries),
+          async ([country, list]) => ({
+            country,
+            list,
+            coords: isChinaCountry(country)
+              ? await resolvePlace(country)
+              : averageMemoryCoordinates(list) || await resolvePlace(country),
+          }),
+        );
+        for (const { country, list, coords } of resolvedCountries) {
           if (cancelled || !coords) continue;
           routePoints.push({
             coords,
@@ -376,7 +451,7 @@ export default function MapView({
           });
           L.marker(coords, { icon: bubbleIcon(list[0].image, list.length, country, fallbackImageOf(list[0])) })
             .on('click', () => handleCountryClick(country, list, coords))
-            .addTo(layer);
+            .addTo(nextLayer);
         }
         if (routePoints.length > 1) {
           L.polyline(
@@ -390,7 +465,7 @@ export default function MapView({
               lineJoin: 'round',
               interactive: false,
             }
-          ).addTo(layer);
+          ).addTo(nextLayer);
         }
       } else if (zoom < POINT_ZOOM) {
         // 海外地区保持国家级气泡，不因缩放或中国的层级钻取而消失。
@@ -402,9 +477,14 @@ export default function MapView({
         const chinaMemories = filtered.filter((memory) => isChinaCountry(countryOf(memory)));
         const cities = groupBy(chinaMemories, cityOf);
         const routePoints: Array<{ coords: L.LatLngExpression; order: number }> = [];
-        for (const [city, list] of Object.entries(cities)) {
-          const country = countryOf(list[0]);
-          const coords = await resolvePlace(country, city);
+        const resolvedCities = await mapWithConcurrency(
+          Object.entries(cities),
+          async ([city, list]) => {
+            const country = countryOf(list[0]);
+            return { city, list, country, coords: await resolvePlace(country, city) };
+          },
+        );
+        for (const { city, list, country, coords } of resolvedCities) {
           if (cancelled || !coords) continue;
           if (!bounds.contains(coords)) continue;
           routePoints.push({
@@ -416,7 +496,7 @@ export default function MapView({
               setPanel({ title: city, list });
               map.flyTo(coords, POINT_ZOOM, { duration: 0.8 });
             })
-            .addTo(layer);
+            .addTo(nextLayer);
         }
         if (routePoints.length > 1) {
           L.polyline(
@@ -430,7 +510,7 @@ export default function MapView({
               lineJoin: 'round',
               interactive: false,
             }
-          ).addTo(layer);
+          ).addTo(nextLayer);
         }
       } else {
         // 海外地区仍保持国家级气泡，中国才进入精确点位层级。
@@ -443,15 +523,22 @@ export default function MapView({
         const bounds = map.getBounds().pad(0.2);
         const byCoord = new Map<string, Memory[]>();
         const chinaMemories = filtered.filter((memory) => isChinaCountry(countryOf(memory)));
-        for (const m of chinaMemories) {
-          if (cancelled) return;
+        const resolvedPoints = await mapWithConcurrency<
+          Memory,
+          { memory: Memory; lat: number | null; lng: number | null }
+        >(chinaMemories, async (m) => {
           let lat = m.lat;
           let lng = m.lng;
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
             const fallbackCoords = await resolvePlace(countryOf(m), cityOf(m));
-            if (cancelled || !fallbackCoords) continue;
+            if (!fallbackCoords) return { memory: m, lat: null, lng: null };
             [lat, lng] = fallbackCoords;
           }
+          return { memory: m, lat: lat as number, lng: lng as number };
+        });
+        for (const { memory: m, lat, lng } of resolvedPoints) {
+          if (cancelled) return;
+          if (lat === null || lng === null) continue;
           if (!bounds.contains([lat, lng])) continue;
           const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
           const list = byCoord.get(key);
@@ -469,12 +556,13 @@ export default function MapView({
                 setPanel(null);
                 onSelectMemory(list[0]);
               })
-              .addTo(layer);
+              .addTo(nextLayer);
             continue;
           }
           const n = list.length;
           const angleStep = (2 * Math.PI) / n;
-          const startAngle = Math.random() * 2 * Math.PI;
+          // 用记忆坐标生成稳定起始角度，重建气泡层时不会产生跳动。
+          const startAngle = (stableHash(key) % 360) * (Math.PI / 180);
           const lngScale = Math.cos((lat * Math.PI) / 180) || 0.5;
           list.forEach((m, i) => {
             const a = startAngle + i * angleStep;
@@ -485,13 +573,25 @@ export default function MapView({
                 setPanel(null);
                 onSelectMemory(m);
               })
-              .addTo(layer);
+              .addTo(nextLayer);
           });
         }
       }
     };
 
-    build();
+    build().then(() => {
+      if (cancelled) {
+        nextLayer.clearLayers();
+        return;
+      }
+
+      nextLayer.addTo(map);
+      layerRef.current = nextLayer;
+      if (previousLayer && map.hasLayer(previousLayer)) {
+        map.removeLayer(previousLayer);
+        previousLayer.clearLayers();
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -512,6 +612,11 @@ export default function MapView({
 
   return (
     <div className="h-screen w-screen relative overflow-hidden bg-[#dbe3e8] text-[#2E2C28]">
+      {/* 瓦片首屏占位：先给用户稳定的地图轮廓，真实瓦片就绪后淡出。 */}
+      <div
+        className={`map-loading-poster absolute inset-0 z-[1] ${baseMapReady ? 'is-ready' : ''}`}
+        aria-hidden="true"
+      />
       {/* 地图本体 */}
       <div ref={containerRef} className="map-editorial-canvas absolute inset-0 z-0" />
 

@@ -367,9 +367,30 @@
 }
 
 /* 地区页地图降噪与浅色控件，只作用于主地图，不影响地点选择器 */
+.map-loading-poster {
+  pointer-events: none;
+  background-color: #d8e2e8;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(89, 112, 119, 0.08) 0, rgba(89, 112, 119, 0.08) 1px, transparent 1px, transparent 34px),
+    repeating-linear-gradient(90deg, rgba(89, 112, 119, 0.06) 0, rgba(89, 112, 119, 0.06) 1px, transparent 1px, transparent 34px);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 420ms ease, visibility 420ms ease;
+}
+.map-loading-poster.is-ready {
+  opacity: 0;
+  visibility: hidden;
+}
 .map-editorial-canvas.leaflet-container {
   background: #d8e2e8;
   font-family: 'Inter', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+}
+.map-editorial-canvas .leaflet-tile {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.map-editorial-canvas .leaflet-tile-loaded {
+  opacity: 1;
 }
 .map-editorial-canvas .leaflet-tile-pane {
   /* 保留低缩放时的国界和水域对比，避免底图被滤成接近白色的背景。 */

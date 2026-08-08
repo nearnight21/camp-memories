@@ -61,6 +61,13 @@ export default function App() {
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const [viewMode, setViewMode] = useState<'board' | 'timeline' | 'places'>('board');
+  // 地区页首次打开后保留地图实例，切换视图时不重复初始化 Leaflet 和瓦片。
+  const [hasOpenedPlaces, setHasOpenedPlaces] = useState(false);
+
+  const switchViewMode = (mode: 'board' | 'timeline' | 'places') => {
+    if (mode === 'places') setHasOpenedPlaces(true);
+    setViewMode(mode);
+  };
 
   // --- Auth initialization ---
   useEffect(() => {
@@ -446,7 +453,7 @@ export default function App() {
           ] as const).map((v) => (
             <button
               key={v.key}
-              onClick={() => setViewMode(v.key)}
+              onClick={() => switchViewMode(v.key)}
               aria-label={v.name}
               title={v.name}
               className={`flex h-9 w-9 items-center justify-center rounded-full text-base transition-all cursor-pointer ${
@@ -877,21 +884,23 @@ export default function App() {
         <p>CAMP MEMORIES Ledger © 2026 · Places Pinned, People Grown</p>
       </footer>
 
-      {/* Alternate drill-down views — 时间线 / 地区（fixed 覆盖层，不改动软木板元素） */}
-      {viewMode !== 'board' && (
+      {/* 时间线单独覆盖；地图在首次打开后保持挂载，避免重复初始化和重新下载瓦片。 */}
+      {viewMode === 'timeline' && (
         <div className="fixed inset-0 z-50">
-          {viewMode === 'timeline' ? (
-            <TimelineView memories={memories} onSelectMemory={setSelectedMemory} />
-          ) : (
-            <>
-              <MapView
-                memories={memories}
-                selectedMemory={selectedMemory}
-                onSelectMemory={setSelectedMemory}
-                onCloseMemory={() => setSelectedMemory(null)}
-                onUpdateMemory={handleUpdateMemory}
-              />
-              <aside
+          <TimelineView memories={memories} onSelectMemory={setSelectedMemory} />
+        </div>
+      )}
+
+      {hasOpenedPlaces && (
+        <div className={`fixed inset-0 z-50 ${viewMode === 'places' ? '' : 'invisible pointer-events-none'}`}>
+          <MapView
+            memories={memories}
+            selectedMemory={selectedMemory}
+            onSelectMemory={setSelectedMemory}
+            onCloseMemory={() => setSelectedMemory(null)}
+            onUpdateMemory={handleUpdateMemory}
+          />
+          <aside
                 id="places-primary-nav"
                 className={`fixed inset-y-0 left-0 z-[1200] flex flex-col border-r border-white/10 bg-[#202322]/96 text-[#D9D4C8] shadow-[12px_0_32px_rgba(28,31,30,0.12)] backdrop-blur-md transition-[width] duration-300 ${
                   selectedMemory ? 'w-14' : 'w-[86px]'
@@ -930,7 +939,7 @@ export default function App() {
                             type="button"
                             onClick={() => {
                               setSelectedMemory(null);
-                              setViewMode(item.key);
+                              switchViewMode(item.key);
                             }}
                             aria-label={item.name}
                             aria-current={active ? 'page' : undefined}
@@ -963,9 +972,7 @@ export default function App() {
                     </div>
                   </>
                 )}
-              </aside>
-            </>
-          )}
+          </aside>
         </div>
       )}
 

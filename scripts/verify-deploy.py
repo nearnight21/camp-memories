@@ -2,12 +2,12 @@
 """Camp Memories 构建产物验证脚本。
 
 用法：
-    python _verify.py [path]
+    python projects/camp-memories/scripts/verify-deploy.py [path]
 
 path 可以是：
     - 一个具体的 JS 文件（如 dist/assets/index-XXXX.js）
     - 一个目录（自动在其中的 index-*.js 里选最新的）
-    - 省略：默认查找仓库根目录 memories/assets/index-*.js
+    - 省略：默认查找 Camp Memories 的 deploy/assets/index-*.js
 
 检查构建产物是否包含预期的功能特征字符串（用于确认部署产物已含最新功能）。
 """
@@ -27,8 +27,10 @@ checks = [
 
 def resolve_js_path(arg):
     if arg is None:
-        # 默认：仓库根目录 memories/assets/
-        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "memories", "assets")
+        # 默认：Camp Memories 产品目录 deploy/assets/
+        base = os.path.normpath(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "deploy", "assets")
+        )
     elif os.path.isfile(arg):
         return arg
     else:

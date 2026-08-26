@@ -41,10 +41,10 @@ npm run dev        # Vite dev server（--port=3000）
 npm run build      # 输出到 dist/
 ```
 
-将 `dist/` 内容覆盖复制到仓库根目录的 `memories/`（部署目录使用构建产物）：
+将 `dist/` 内容覆盖复制到同一产品目录的 `../deploy/`（部署目录使用构建产物）：
 
 ```bash
-rm -rf ../memories/assets && cp -r dist/* ../memories/
+rm -rf ../deploy/assets && cp -r dist/* ../deploy/
 ```
 
 ## 目录结构
@@ -66,4 +66,4 @@ src/
 
 ## 数据库
 
-依赖 `schema-camp.sql`（memories / future_letters 表 + RLS 策略），在 ThinkPad 的 `schema.sql` 之后执行。
+依赖 `../legacy/supabase-schema.sql`（memories / future_letters 表 + RLS 策略），在 ThinkPad 的 `../../thinkpad/legacy/supabase-schema.sql` 之后执行。

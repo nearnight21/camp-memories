@@ -1,0 +1,22 @@
+# 依赖与构建产物
+**/node_modules/
+**/dist/
+**/coverage/
+**/*.tsbuildinfo
+
+# 本地数据、日志与环境文件
+*.log
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# 本机与编辑器文件
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.vercel/
+.wrangler/

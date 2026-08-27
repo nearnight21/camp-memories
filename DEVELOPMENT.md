@@ -6,10 +6,10 @@
 
 ## 当前状态
 
-- 当前迁移暂存分支：`codex/cos-direct-transfer`；创建新 GitHub 远端时切换并固定 `main` 为规范分支。
-- 本地过滤仓已完成源码与 Git 历史拆分；当前 `origin` 仍是迁移验证用的只读本地远端。
+- 规范分支：`main`；`origin` 为 `https://github.com/nearnight21/camp-memories.git`。
+- 源码与 Git 历史拆分已完成，独立仓已推送到新的 GitHub 远端。
 - 本阶段已建立仓库治理文件、环境变量清单、根忽略规则和同步脚本。
-- 新 GitHub 远端、独立 CI、边界检查、Vercel/Worker/Wrangler 配置尚未创建，按后续步骤处理。
+- 独立 CI、边界检查、Vercel/Worker/Wrangler 配置尚未创建，按后续步骤处理。
 - `legacy/supabase-schema.sql` 仍引用旧 ThinkPad schema 提供的 `update_modified_column()` 与
   `set_user_id()`；这是数据库初始化独立性阻塞项，部署阶段需在 Camp 仓内补齐等价定义并验证 RLS。
 
@@ -39,12 +39,10 @@ git diff --check
 工作区干净时运行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\sync-canonical-worktree.ps1 `
-  -CanonicalBranch codex/cos-direct-transfer
+powershell -ExecutionPolicy Bypass -File .\scripts\sync-canonical-worktree.ps1
 ```
 
-脚本默认只允许 `main` 快进到 `origin/main`；切换前可显式传入
-`-CanonicalBranch codex/cos-direct-transfer` 做迁移暂存分支验证。本地领先或分叉时停止，
+脚本只允许 `main` 快进到 `origin/main`；本地领先或分叉时停止，
 不执行 stash、reset、rebase、cherry-pick 或 push。
 
 ## 环境与交接规则

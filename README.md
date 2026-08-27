@@ -8,7 +8,7 @@
 - `legacy/`：只用于追溯的旧 Supabase schema。
 - `docs/`：开发交接和环境变量清单。
 
-当前仓库尚未绑定新的 GitHub 远端；本地 `origin` 只用于迁移验证。独立 Vercel、Worker
+规范分支为 `main`，远端为 `https://github.com/nearnight21/camp-memories`。独立 Vercel、Worker
 和 Wrangler 配置将在 Phase 5 的部署阶段重建。
 
 验证：
@@ -24,6 +24,5 @@ python scripts/verify-deploy.py
 跨电脑交接前运行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\sync-canonical-worktree.ps1 `
-  -CanonicalBranch codex/cos-direct-transfer
+powershell -ExecutionPolicy Bypass -File .\scripts\sync-canonical-worktree.ps1
 ```
